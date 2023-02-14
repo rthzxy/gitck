@@ -111,6 +111,8 @@
 > git cherry-pick <commit_id>   <!--复制一个特定的提交到当前分支 -->
 >
 > git branch -D <分支>    <!--强行删除分支-->
+>
+> git tag v1.0    <!--给当前提交打标签-->
 
 # 创建git远程仓库
 
