@@ -208,6 +208,8 @@
 
 # 搭建git服务器（centos）
 
+参考 https://www.cnblogs.com/dee0912/p/5815267.html#_label0
+
 > \# 安装git
 >
 > ​	yum install -y git
