@@ -212,13 +212,15 @@
 >
 > ​	yum install -y git
 >
-> \# 创建git用户，用来管理git服务，并未git用户设置密码
+> \# 创建git用户，用来管理git服务，并为git用户设置密码
 >
 > ​	useradd git
 >
 > ​	passwd git
 >
 > \# 创建证书登录 
+>
+> ​	收集所有需要登录的用户的公钥，就是他们自己的`id_rsa.pub`文件，把所有公钥导入到`/home/git/.ssh/authorized_keys`文件里，一行一个。 
 >
 > ​	cd /home/git 
 >
@@ -232,7 +234,11 @@
 >
 > ​		mkdir -p /git/gitcangku && cd /git/gitcangku
 >
-> ​		git init
+> ​		git init   <!--创建有工作区的仓库-->
+>
+> ​		git init --bare sample.git  <!--创建没有工作区的仓库。-->
+>
+> ​		裸仓库没有工作区，因为服务器上的Git仓库纯粹是为了共享，所以不让用户直接登录到服务器上去改工作区，并且服务器上的Git仓库通常都以`.git`结尾。
 >
 > ​		cd /git
 >
@@ -248,6 +254,18 @@
 >
 > ​			WORK_TREE='../'
 > 			git  --work-tree="${WORK_TREE}" reset --hard
+>
+> \# 禁用shell登录
+>
+> ​	出于安全考虑，第二步创建的git用户不允许登录shell，这可以通过编辑`/etc/passwd`文件完成。找到类似下面的一行： 
+>
+> ​	git : x : 1001:1001:,,,:/home/git:/bin/bash
+>
+> ​	改为：
+>
+> ​	git: x :1001:1001:,,,:/home/git:/usr/bin/git-shell
+>
+>  
 >
 > \# 客户端克隆仓库
 >
