@@ -113,6 +113,30 @@
 > git branch -D <分支>    <!--强行删除分支-->
 >
 > git tag v1.0    <!--给当前提交打标签-->
+>
+> git tag   <!--查看所有标签-->
+>
+> git show v1.0   <!--查看指定标签的详细信息-->
+>
+> git tag v1.1 <commit_id>   <!--给指定的提交打标签-->
+>
+> git tag -a v1.2 -m “说明” <!--创建带有说明的标签 -a：指定标签名。-m：指定说明文字-->
+>
+> git tag -d <标签>   <!--删除本地标签-->
+>
+> git push origin :refs/tags/<标签>    <!--删除远程库标签-->
+>
+> git tag <远程库名>  <标签>   <!--推送某个标签到远程 -->
+>
+> git tag <远程库名> \--tags   <!--推送所有标签到远程 -->
+>
+> 如果标签已经推送到远程，要删除远程标签就麻烦一点，先从本地删除，在从远程删除
+>
+> ​	
+>
+> 标签总是和某个commit挂钩。如果这个commit既出现在master分支，又出现在dev分支，那么在这两个分支上都可以看到这个标签。 
+>
+> 
 
 # 创建git远程仓库
 
@@ -168,16 +192,87 @@
 >
 > 注意把Git库的地址换成你自己的，然后进入`gitku目录看看，已经有`README.md`文件了： 
 
+# 配置别名
+
+> \# 命令配置
+>
+> ​	git config –global alias.st status 
+>
+> \# 在配置文件中配置
+>
+> ​	配置Git的时候，加上`--global`是针对当前用户起作用的，如果不加，那只针对当前的仓库起作用。
+>
+> ​	配置文件放哪了？每个仓库的Git配置文件都放在`.git/config`文件中。别名就在`[alias]`后面，要删除别名，直接把对应的行删掉即可。
+>
+> ​	而当前用户的Git配置文件放在用户主目录下的一个隐藏文件`.gitconfig`中，配置别名也可以直接修改这个文件，如果改错了，可以删掉文件重新通过命令配置。 
+
+# 搭建git服务器（centos）
+
+> \# 安装git
+>
+> ​	yum install -y git
+>
+> \# 创建git用户，用来管理git服务，并未git用户设置密码
+>
+> ​	useradd git
+>
+> ​	passwd git
+>
+> \# 创建证书登录 
+>
+> ​	cd /home/git 
+>
+> ​	mkdir .ssh && cd .ssh
+>
+> ​	vim authorized_keys <!--将客户端的id_rsa.pub 公钥复制进去-->
+>
+> \# 服务器端创建按git仓库
+>
+> ​	设置一个目录为git仓库，然后把仓库的所属用户和组设置为git
+>
+> ​		mkdir -p /git/gitcangku && cd /git/gitcangku
+>
+> ​		git init
+>
+> ​		cd /git
+>
+> ​		chown -R git.git gitcangku/
+>
+> ​	配置客户端每次推送到远程仓库自动更新工作目录内容
+>
+> ​		cd /git/gitcangku/.git/hooks
+>
+> ​		vim post-receive 添加如下内容
+>
+> ​	    	  #!/bin/sh
+>
+> ​			WORK_TREE='../'
+> 			git  --work-tree="${WORK_TREE}" reset --hard
+>
+> \# 客户端克隆仓库
+>
+> ​	git clone git@ip地址:/git/gitcangku   <!--默认端口为22，如果不是22，IP地址后面还有加端口号-->
+>
+> ​	 
+
 
 
 
 
 # 疑难解答
 
-Q：输入`git add readme.txt`，得到错误：`fatal: not a git repository (or any of the parent directories)`。
+问：输入`git add readme.txt`，得到错误：`fatal: not a git repository (or any of the parent directories)`。
 
-A：Git命令必须在Git仓库目录内执行（`git init`除外），在仓库目录外执行是没有意义的。
+答：Git命令必须在Git仓库目录内执行（`git init`除外），在仓库目录外执行是没有意义的。
 
-Q：输入`git add readme.txt`，得到错误`fatal: pathspec 'readme.txt' did not match any files`。
 
-A：添加某个文件时，该文件必须在当前目录下存在，用`ls`或者`dir`命令查看当前目录的文件，看看文件是否存在，或者是否写错了文件名。
+
+问：输入`git add readme.txt`，得到错误`fatal: pathspec 'readme.txt' did not match any files`。
+
+答：添加某个文件时，该文件必须在当前目录下存在，用`ls`或者`dir`命令查看当前目录的文件，看看文件是否存在，或者是否写错了文件名。
+
+
+
+问：使用git pull拉取时出现：fatal: refusing to merge unrelated histories
+
+答：在git pull和git push命令中添加–allow-unrelated-histories。 让git允许提交不关联的历史代码。 
