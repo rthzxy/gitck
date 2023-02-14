@@ -73,14 +73,104 @@
 > git reset HEAD 文件   <!--丢弃暂存区的修改，返回到工作区的修改中-->
 >
 > git rm 文件    <!--删除文件-->
+>
+> git push origin（远程库的名字） master（分支）  <!--上传本地库的内容到远程库-->
+>
+> git remote -v   <!--查看远程库信息-->
+>
+> git remote rm origin（远程库的名字）  <!--删除本地和远程的绑定关系 -->
+>
+> git clone <code下的链接>   <!--克隆库-->
+>
+> git checkout -b <分支>   <!--创建并切换到分支-->
+>
+> git switch -c <分支>    <!--创建并切换到分支-->
+>
+> git switch <分支>    <!--切换分支-->
+>
+> git branch <分支>     <!--创建分支-->
+>
+> git checkout <分支>    <!--切换分支-->
+>
+> git branch    <!--查看分支，当前分支前面会标一个`*`号 -->
+>
+> git merge <分支>    <!--合并指定分支到当前分支 -->
+>
+> git branch -d <分支>   <!--删除分支-->
+>
+> git stash   <!--把当前工作现场隐藏起来 -->
+>
+> git stash list   <!--查看隐藏的工作现场-->
+>
+> git stash apply   <!--恢复工作现场，但是恢复后，stash内容并不删除 -->
+>
+> git stash drep <隐藏的工作现场>   <!--删除隐藏的工作现场-->
+>
+> git stash pop   <!--恢复的同时把stash内容也删了 -->
+>
+> git cherry-pick <commit_id>   <!--复制一个特定的提交到当前分支 -->
+>
+> git branch -D <分支>    <!--强行删除分支-->
+
+# 创建git远程仓库
+
+> 注册GitHub账号。由于你的本地Git仓库和GitHub仓库之间的传输是通过SSH加密的，所以，需要一点设置： 
+>
+> 第1步：创建SSH Key。在用户主目录下（C:\Users\用户名\ ），看看有没有.ssh目录，如果有，再看看这个目录下有没有`id_rsa`和`id_rsa.pub`这两个文件，如果已经有了，可直接跳到下一步。如果没有，打开Shell（Windows下打开Git Bash），创建SSH Key： 
+>
+> ​	ssh-keygen -t rsa -C "邮箱地址"   //一路回车，使用默认值即可 
+>
+> 如果一切顺利的话，可以在用户主目录里找到`.ssh`目录，里面有`id_rsa`和`id_rsa.pub`两个文件，这两个就是SSH Key的秘钥对，`id_rsa`是私钥，不能泄露出去，`id_rsa.pub`是公钥，可以放心地告诉任何人。
+>
+> 第2步：登陆GitHub，打开设置（settings），点击SSH和GPG密钥（SSH and GPG keys），
+>
+> 点击“新的SSH密钥（New SSH key）”，在标题（Title）这里随便起个名，在钥匙（Key）文本框里粘贴id_rsa.pub文件的内容
+>
+> 点“Add Key”，你就应该看到已经添加的Key
+>
+> 创建完成
+
+# 添加远程库
+
+> 首先，登陆GitHub，然后，在右上角找到“新存储库（new repository）”按钮，创建一个新的仓库
+>
+> 在存储库名称（Repository name）这里输入仓库名称
+>
+> 然后点击create repository(创建存储库)，就成功地创建了一个新的Git仓库 
+>
+> 创建好库之后，在本地的仓库下运行命令：
+>
+> ​	git remote add origin git@github.com:rthzxy/gitck.git（库页面code（代号）下面的ssh链接）   <!--rthzxy：GitHub账户名。 gitck：新建库的名称-->
+>
+> 添加后，远程库的名字就是`origin`，这是Git默认的叫法，也可以改成别的 
+>
+> 下一步，就可以把本地库的所有内容推送到远程库上： 
+>
+> ​	git push -u origin master   
+>
+> 把本地库的内容推送到远程，用`git push`命令，实际上是把当前分支`master`推送到远程。
+>
+> 由于远程库是空的，我们第一次推送`master`分支时，加上了`-u`参数，Git不但会把本地的`master`分支内容推送的远程新的`master`分支，还会把本地的`master`分支和远程的`master`分支关联起来，在以后的推送或者拉取时就可以简化命令。
+
+# 从远程库克隆
+
+> 上面讲了先有本地库，后有远程库的时候，如何关联远程库。
+>
+> 现在，假设我们从零开发，那么最好的方式是先创建远程库，然后，从远程库克隆。
+>
+> 首先，登陆GitHub，创建一个新的仓库，名字叫`gitku`：勾选添加自述文件（Add a README file ）,这样GitHub会自动为我们创建一个`README.md`文件。创建完毕后，可以看到`README.md`文件： 
+>
+> 远程库已经准备好了，下一步是用命令`git clone`克隆一个本地库： 
+>
+> ​	git clone git@github.com:rthzxy/gitku.git   <!--rthzxy：GitHub账户名。 gitku：新建库的名称-->
+>
+> 注意把Git库的地址换成你自己的，然后进入`gitku目录看看，已经有`README.md`文件了： 
 
 
 
 
 
 # 疑难解答
-
-### 疑难解答
 
 Q：输入`git add readme.txt`，得到错误：`fatal: not a git repository (or any of the parent directories)`。
 
