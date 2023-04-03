@@ -120,6 +120,10 @@
 >
 > ​	systemctl status 服务程序名称   <!--查看服务状态-->
 >
+> ​	systemcrl enable 服务程序名称   <!--开机自启-->
+>
+> ​	systemcrl enable 服务程序名称   <!--开机不自启-->
+>
 > ​		network：网卡服务名称
 >
 > ​		sshd：远程连接服务
@@ -267,10 +271,14 @@
 ## 26\. mount-磁盘挂载
 
 > ​	mount 设备文件 挂载点目录（空目录）
+>
+> ​	mount -a  #挂载/etc/fstab配置文件中的配置 
 
 ## 27\. umount-磁盘卸载
 
 > ​	umount 挂载点目录
+>
+> ​	umount -l 挂载点    #强制卸载
 
 ## 28\. fdisk-查看磁盘信息与分区设置
 
@@ -328,7 +336,7 @@
 >
 > ​	rpm -ql 软件名称	      <!--查询软件安装路径-->
 >
-> ​	rpm -qa |grep 软件名称 <!--查询软件是否已经安装-->
+> ​	rpm -qa 软件名称 <!--查询软件是否已经安装-->
 >
 > ​	rpm -qf /etc/passwd   <!--查询某一个文件是由哪个软件产生的-->
 >
@@ -385,10 +393,12 @@
 > ​	find . -name "test*" -ok rm {} \; <!--将找出来的文件删除，-ok:问你是否删除 -->
 >
 > ​	find . -name "test*" -exec rm {} \; <!--将找出来的文件删除 -->
+>
+> ​	find /etc/ -size +20k -exec cp {} /opt/ \;   <!--将找出来的文件复制到其他目录-->
 
-## 40\. du-查看目录中所有数据的容量总和
+## 40\. du-查看目录中所有数据的容量总和(目录的大小)
 
-> ​	du -sh /var  <!--查看目录汇总大小  s 总和  h 以可读方式显示-->
+> ​	du -sh /var  <!--查看目录汇总大小  s整个目录的大小  h 以可读方式显示-->
 
 ## 41\. tar-压缩解压命令
 
@@ -429,6 +439,30 @@
 > date -d	      <!--显示过去或未来时间信息 -n 过去  +n 未来-->
 >
 > date -s	      <!--修改时间信息-->
+>
+> date +%F      <!--显示年月日-->
+>
+> date +%T      <!--显示时分秒-->
+>
+> date "+%Y-%m-%d %H:%M:%S"    <!--显示年月日和时分秒-->
+>
+> 
+>
+> date “+%Y-%m-%d %H:%M:%S”    #以方便看的方式 显示时间
+>
+> date +%s    #获取当前时间的时间戳
+>
+> date -d “2023-3-13 14:52:36” +%s   #获取指定时间的时间戳
+>
+> 时间加减算法：days(天)、year(年)、month(月)、hour(时)、min(分)、second(秒)
+>
+> ​	date “+%Y-%m-%d %H:%M:%S” --date ‘1 days/year/month/hour’   #加一天/年/月/小时
+>
+> ​	date “+%Y-%m-%d %H:%M:%S” --date ‘-1 days/year/month/hour’  #减一天/年/月/小时
+>
+> date -d “+%Y-%m-%d %H:%M:%S” --date ‘-10 min’ +%s  #显示当前时间减去10分钟的时间戳
+
+
 
 ## 44\. xargs:
 
@@ -469,6 +503,25 @@
 > ​	chmod 664    <!--以数字方式修改权限-->
 >
 > ​	chmod -R     <!--对目录本身以及目录下面的数据进行递归修改-->
+>
+> 3、Sticky Bit权限
+> Sticky Bit (SBit) 当前只针对目录有效， 对文件没有效果。其对目录的作用是：
+>  ■ 在 具 有 SBit 的目录下， 用户若在该目录下具有 w 及 x 权限 ， 则当用户在该目录下建立文件或目 录时， 只有文件拥有者与 root 才有权力删除。
+> 
+>
+> 4、设置文件和目录的特殊权限
+>
+>         为文件或目录添加三种特殊权限同样可以通过chmod命令来实施,使用“u±s”、“g±s”、“o±t”的字符权限模 式分别用于添加和移除SUID、GUID、sticky权限。 
+> 若使用数字形式的权限模式,可采用“nnnn”格式的四位八进制数字表示，其中：后面三位是一般权限的数 字表示，前面第一位则是特殊权限的标志数字：
+>  0——表示不设置特殊权限 
+>  1——表示只设置sticky 
+>  2——表示只设置GUID权限 
+>  3——表示只设置SGID和sticky权限 
+>  4——表示只设置SUID权限 
+>  5——表示只设置SUID和sticky权限 
+>  6——表示只设置SUID和SGID 
+>  7——表示同时设置SUID、GUID、sticky3种权限
+> 原文链接：https://blog.csdn.net/txtxla/article/details/127659834
 
 ## 47\. chown-修改数据属主或属组信息
 
@@ -552,23 +605,27 @@
 
 ## 55\. \--stdin-免交互设置用户密码
 
+> echo 123456 |passwd --stdin 用户
+
 ## 56\. id-查看用户uid gid 以及所属组信息
 
-## 57\. w-查看当前登录系统用户信息
+## 57\. w 查看当前登录系统用户信息
 
-## 58\. ps-查看系统进程
+## 58\. ps 查看系统进程
 
 > ​	-ef   <!--可以显示所有进程信息-->
 >
 > ​	ps -ef | grep “nginx”  <!--只查看nginx相关的进程-->
 
-## 59\. kill/killall-杀进程命令
+## 59\. kill/killall 杀进程命令
 
 > ​	kill 进程号    
 >
 > ​	kill -1 进程号   <!--刷新进程服务-->  
 >
 > ​	kill -9 进程号   <!--强制杀进程-->
+>
+> ​	kill -0 进程号   <!--不发送关闭停止信号，但是会检测进程是否存在-->
 >
 > ​	killall 进程名   <!--杀掉该进程的所有进程-->
 
@@ -700,7 +757,7 @@
 >
 > ​	-m  打印字符数
 >
-> ​	-L  打印最长的行的长度
+> ​	-L  打印最长的行的长度(字符串长度)
 
 ## 68.tr 从标准输入中替换、删除字符
 
@@ -743,7 +800,7 @@
 >
 > lsattr 文件  <!--查看文件特殊权限-->
 
-## 72. lsblk 查看磁盘信息
+## 72. lsblk 查看所有磁盘信息
 
 ## 73. free 查看内存和swap
 
@@ -780,3 +837,190 @@
 ## 80. groups 查看用户属于哪个组
 
 > groups 用户名
+
+## 81. setfacl 设置文件策略规则
+
+> 通过该技术可以更加精准的控制权限的分配，例如仅允许某个用户访问指定目录，或仅有某个用户才具有写入权限 原文链接：<https://www.linuxcool.com/setfacl> 
+>
+> setfacl -m u:用户名:权限  文件或目录   <!--设置指定用户对指定文件或目录拥有什么权限-->
+
+## 82. getfacl 查看文件策略规则
+
+> getfacl 文件/目录    <!--查看文件或目录的策略规则-->
+
+## 83. vimdiff 比较两个文件的内容差异
+
+## 84. seq 打印数字序列
+
+> seq -w 10   #打印1到10 w：在前面添0使长度相同
+>
+> seq -s “ ” 1 10
+
+## 85. blkid 查看磁盘UUID和格式化类型
+
+## 86. top 实时显示系统中各个进程的资源占用情况
+
+> ​	-d ：指定刷新时间间隔
+>
+> ​	-n ：指定刷新的次数，刷新次数完成后退出top命令
+>
+> ​	-p ：查看指定的进程信息
+>
+> ​	-u ：查看指定用户的进程
+>
+> ​	-c ：显示进程的整个命令路径，而不是只显示命令名称
+>
+> ​	-b ：批处理模式，不进行交互式显示。输出结果可以写入到文件中或者传递给其他程序
+>
+> top快捷键指令：
+>
+> ​	1 ：查看CPU核心总数
+>
+> ​	q ：退出
+>
+> ​	M ：按内存使用百分比排序
+>
+> ​	P ：按CPU使用百分比排序
+>
+> ​	x ：高亮显示排序的列
+>
+> ​	z ：以彩色显示
+>
+> ​	b ：高亮显示处于R状态的进程
+>
+> ​	>或< ：切换排序的列
+
+
+
+## 87. ipset 创建IP集合
+
+> ***ipset命令格式***
+>
+> ​	ipset [options] command [command-options]	
+>
+> options 参数有：-exist、-file、-output{plan/save/xml}、-quite、-resolve、-sorted、-name
+> command 选项有：create、add、del、test、destroy、list、save、restore、flush、rename、
+>
+> 
+>
+> ***command选项介绍***:
+>
+> **n, create**：通过指定SETNAME和TYPENAME创建一个新IP集合。如果指定-exist选项，ipset在创建一个已经存在的IP集合时，ipset将不会报错。 
+>
+> ​	ipset create/n deny01 hash:ip
+>
+> **add/-A** ：添加一个条目到SETNAME指定的IP集合中。如果指定-exist选项，IP集合存在此条目时，ipset将不会报错。 
+>
+> ​	ipset add/-A deny01 192.168.1.3
+>
+> **del/-D** ：从SETNAME指定的IP集合中删除一个条目。如果指定-exist选项，IP集合不存在此条目时，ipset将不会报错。 
+>
+> ​	ipset del deny01 192.168.1.3
+>
+> **test/-T** ：测试一个条目是否在指定的IP集合中。如果在，ipset命令返回0，如果不在，则返回非0
+>
+> ​	ipset test deny01 192.168.1.3
+>
+> **destroy/x** ：销毁指定的IP集合，如果不指定，则销毁所有的IP集合。如果某一IP集合正在被引用，则ipset不对该IP集合做任何操作。
+>
+> ​	ipset destroy deny01
+>
+> **list/-L** ：查看IP集的头部信息和添加的条目。如果没有指定IP集，则是所有IP集。--sorted选项会把IP集合排序后输出。--output指定IP集合输出的格式： 
+>
+> ​	ipset list deny01
+>
+> **flush** ： 清空指定IP集，如果没有指定，则是所有的IP集。 
+>
+> ​	ipset flush deny01
+>
+> **rename** ：重命名IP集
+>
+> ​	ipset rename deny01 deny02
+>
+> **timeout** ：设置IP集合添加的新条目的默认超时时间，新加的条目的时间超过超时时间后，将从IP集中删除。
+>
+> ​	ipset create deny01 hash:ip timeout 300  //创建集合的时候设置
+>
+> ​	ipset add deny01 192.168.1.1 timeout 200 //添加条目的时候可以重新指定该条目的超时
+>
+> **save** ：保存指定的IP集，如果没有指定，则是所有的IP集。如果不指定-file则是输出到标准输出，指定则是输出到指定文件。 
+>
+> ​	ipset save deny01 -file /root/ipset.txt
+>
+> **restore** ：恢复保存的ipset配置
+>
+> ​	ipset restore -file /root/ipst.txt
+>
+> 【注】：ipset配置好后需要保存配置，不然重启会失效。将恢复的名命令写到/etc/rc.d/rc.local中并给该文件执行权限。可以实现重启后自动恢复配置
+>
+> ***将ipset 集挂在iptables封IP***
+>
+> ​	iptables -A INPUT -m set \--match-set deny01 src -j DROP
+
+
+
+## 88. iptables
+
+> \#添加规则
+>
+> ​	iptables -A INPUT -s 192.168.1.1 -j DROP
+>
+> \#删除规则
+>
+> ​	iptables -D INPUT -s 192.168.1.1 -j DROP
+>
+> \#查看规则
+>
+> ​	iptables -nL
+>
+> 【注】iptables配置后需要保存配置，不然重启后将失效。在开机自启动文件中添加还原iptables配置，使配置自动恢复
+>
+> ​	iptables-save > /etc/sysconfig/iptables   //保存配置
+>
+> ​	在/etc/rc.d/rc.local中添加恢复命令，并给/etc/rc.d/rc.local执行权限
+>
+> ​	iptables-restore < /etc/sysconfig/iptables   //恢复配置
+>
+>  
+
+## 89. pgrep 查看进程PID
+
+> ​	pgrep 进程名
+
+## 90. nohup/& 讲命令（进程）放入后台
+
+> ​	nohup 命令   //方法一
+>
+> ​	命令 &    //方法二，后台运行脚本常用&符
+
+## 91. strace 跟踪进程的系统调用
+
+> strace [参数] 进程（命令）
+>
+> ​	strece -p 	//指定进程pid 
+>
+> ​	strece -f 	//进程以及进程创建的子进程
+>
+> ​	strece -o filename  	//将输出保存到文件 
+>
+> ​	
+
+## 92. ltrace 跟踪进程调用库函数
+
+> ​	ltrece -p 	//指定进程pid 
+>
+> ​	ltrece -f 	//进程以及进程创建的子进程
+>
+> ​	ltrece -o filename  	//将输出保存到文件 
+
+## 93. uptime/w 查看平均负载
+
+> 需要关注负载的值：总的核心数*70%=关注的点
+
+## 94. iostat 查看磁盘IO
+
+## 95. dirname/basename 取路径/文件名
+
+> dirname /etc/sysconfig/network-scripts/ifcfg-ens33  //取出路径
+>
+> basename /etc/sysconfig/network-scripts/ifcfg-ens33  //取出文件名
