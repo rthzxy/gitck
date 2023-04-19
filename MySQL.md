@@ -126,7 +126,7 @@ alter table 表名 drop 字段名;
 drop table [if exists] 表名;
 
 #删除指定表，并重新创建该表。相当于清空表数据，只留下表结构
-reuncate table 表名;
+truncate table 表名;
 
 【注意】：在删除表时，表中的全部数据也会被删除。
 ```
@@ -308,7 +308,7 @@ select 字段列表 from 表名 where 条件列表
 | 常规比较运算符（>,<,=,>=,<=,!=） | 大于，小于……                               |
 | between…and…                     | 在某个范围之内（含最大、最小值）           |
 | in(…)                            | 在in之后的列表中的值，多选一               |
-| like ‘占位符’                    | 模糊匹配（_匹配当个字符，%匹配任意个字符） |
+| like ‘占位符                     | 模糊匹配（_匹配单个字符，%匹配任意个字符） |
 | is null/is not null              | 是null/不是null                            |
 
 | 逻辑运算符 | 功能 |
@@ -818,8 +818,6 @@ select 字段列表 from 表名 where 字段 = (select 字段列表 from 表名)
 >
 > 用途：可以出现在where/from/select之后。多用于在查询语句 from 之后，将表子查询返回的结果作为一张临时表再和其他表进行联查。
 >
-> 
->
 > \#例：查询与 小昭 和 韦一笑 工资和职位相同的员工信息
 >
 > ```
@@ -875,7 +873,7 @@ rollback;
 
 > 1. 原子性（Atomicity）：事务是不可分割的最小操作单元，要么同时成功，要么同时失败。
 > 2. 一致性（Consistency）：事务完成时，必须使所有数据都保持一致状态。
-> 3. 隔离性（Isolation）：数据库系统提供的隔离机制，保证事务在不受外部并发操作影响的环境下允许。
+> 3. 隔离性（Isolation）：数据库系统提供的隔离机制，保证事务在不受外部并发操作影响的环境下运行。
 > 4. 持久性（Durability）：事务一旦提交或回滚，它对数据库中的该表就是永久的。
 
 
@@ -892,12 +890,12 @@ rollback;
 
 ## 事务隔离级别
 
-| 隔离级别                | 是否会出现脏读 | 是否会出现不可重复读 | 是否会出现幻读 |
-| ----------------------- | -------------- | -------------------- | -------------- |
-| read uncommitted        | 是             | 是                   | 是             |
-| read committed          | 否             | 是                   | 是             |
-| repeatable read（默认） | 否             | 否                   | 是             |
-| serializable            | 否             | 否                   | 否             |
+| 隔离级别                         | 是否会出现脏读 | 是否会出现不可重复读 | 是否会出现幻读 |
+| -------------------------------- | -------------- | -------------------- | -------------- |
+| read uncommitted 读取未提交      | 是             | 是                   | 是             |
+| read committed 读取已提交        | 否             | 是                   | 是             |
+| repeatable read（默认） 可重复读 | 否             | 否                   | 是             |
+| serializable 可串行化            | 否             | 否                   | 否             |
 
 ***设置/查看事务隔离级别***
 
@@ -1267,3 +1265,2314 @@ show [session/global] status like 'Com_______';		#7个下划线占位符
 
 
 
+### 慢查询日志
+
+> 慢查询日志记录了所有执行时间超过指定参数（long_query_time,单位：秒，默认10秒）的所有sql语句的日志。
+>
+> mysql的慢查询日志默认没有开启，需要在mysql的配置文件（/etc/my.cnf）中配置如下信息：
+
+```sh
+#开启mysql慢查询日志开关
+slow_query_log=1
+
+#设置慢查询日志的时间为2秒，sql语句执行时间超过2秒。就会被视为慢查询，记录慢查询日志
+long_query_time=2
+
+配置完成后，重启mysql服务生效。慢查询日志记录的信息在：/var/lib/mysql/localhost-slow.log中
+```
+
+***查看慢查询日志是否开启***
+
+```mysql
+show variables like 'slow_query_log';
+```
+
+
+
+### profile详情
+
+> show profiles能够在做sql优化时帮助我们了解时间都耗费到哪里去了。通过have_profiling参数，能够看到当前mysql是否支持profile操作。
+>
+> 默认profiling是关闭的，可以通过set语句在session/global 级别开启profiling。
+>
+> 开启profiling后，就可以使用查看命令的执行耗时。
+
+***查看当前mysql是否支持profile操作***
+
+```mysql
+select @@have_profiling;
+```
+
+***开启profiling***
+
+```mysql
+set [session/global] profiling=1;
+
+#查看profiling是否开启
+select @@profiling;
+```
+
+***查看命令耗时情况***
+
+```mysql
+#查看每一条sql的耗时基本情况
+show profiles;
+
+#查看指定的query_id的sql语句各个阶段的耗时情况（query_id就是show profiles查询出来的）
+show profile for query query_id;
+
+#查看指定query_id的sql语句cpu的使用情况
+show profile cpu for query query_id;
+```
+
+
+
+### explain执行计划 （sql优化重点）
+
+> explain或者desc命令获取mysql如何执行select语句的信息，包括在select语句执行过程中表如何连接和连接的顺序。
+
+***语法***
+
+```mysql
+#直接在select语句之前加上关键字 explain/desc
+explain/desc select 字段列表 from 表名 where 条件；
+```
+
+***explain执行计划各个字段的含义***
+
+> 1. id
+>
+>    select查询的序列号，表示查询中执行select子句或者是操作表的顺序（id相同，执行顺序从上到下；id不同，值越大，越先执行）
+>
+> 2. select_type（了解）
+>
+>    表示select的类型，常见的取值有SIMPLE（简单表，即不使用表连接或子查询）、PRIMARY（主查询，即外层的查询）、UNION（UNION中的第二个或者后面的查询语句）、SUBQUERY（select/where之后包含了子查询）等
+>
+> 3. type(关注)（优化尽量向前）
+>
+>    表示连接类型，性能由好到差的连接类型为NULL、system、const、eq_ref、ref、range、index、all
+>
+>    NULL：不访问任何表才可能是NULL。
+>
+>    system：访问系统表才会是system。
+>
+>    const：根据主键或唯一索引访问一般会出现const。
+>
+>    ref：使用非唯一性的索引进行查询是就会出现ref
+>
+> 4. possible_key（关注）
+>
+>    显示可能应用在这张表上的索引，一个或多个。
+>
+> 5. Key（关注）
+>
+>    实际使用的索引，如果为NULL，则没有使用索引。
+>
+> 6. Key_len（关注）
+>
+>    表示索引中使用的字节数，该值为索引字段最大可能长度，并非实际使用长度，在不损失精确性的前提下，长度越短越好。
+>
+> 7. rows（关注）
+>
+>    mysql认为必须要执行查询的行数，在innoDB引擎的表中，是一个估计值，可能并不总是准确的。
+>
+> 8. filtered
+>
+>    表示返回结果的行数占需读取行数的百分比，filtered的值越大越好
+>
+> 9. Extra（关注）
+>
+>    额外信息
+
+
+
+## 索引使用
+
+### 联合索引使用规则
+
+***最左前缀法则***
+
+> 如果索引关联了多列（联合索引），要遵守最左前缀法则。最左前缀法则指的是查询从索引的最左列开始，并且不跳过索引的列，如果跳过某一列，`索引将部分失效（跳过列开始后面的字段索引失效）`
+>
+> 示例：
+>
+> ​	select * from 表名 where 索引字段1=‘值’ and 索引字段2=‘值’ and 索引字段3=‘值’；
+>
+> ​	如果跳过了索引字段2，那么索引字段2及其后面的索引将失效。如果没有索引字段1，整个索引失效。
+>
+> ​	索引字段写的先后顺序可以不同。
+>
+> ​	
+>
+
+***范围查询规则***
+
+> 联合索引中，出现范围查询（>,<），那么`范围查询右侧的列索引失效`。
+>
+> 示例：
+>
+> ​	select * from 表名 where 索引字段1=‘值’ and 索引字段2>‘值’ and 索引字段3=‘值’；
+>
+> ​	索引字段2之后的索引将失效。
+>
+> 解决方法：使用 >=，<= 后面的索引就不会失效了。
+
+### 索引失效的原因
+
+***索引列运算***
+
+> 不要在索引列上进行运算操作；如果在索引列上进行运算操作，索引将失效。
+>
+> 示例：
+>
+> ​	select * from 表 where substring(phone,10,2)=‘15’;
+>
+> ​	查询手机号后两位为15的数据，进行了substring()函数运算，索引将会失效
+
+***字符串不加引号***
+
+> 字符串类型字段使用时，需要加上引号，如果不加引号，`索引将失效`。
+>
+> 示例：
+>
+> ​	select * from 表 where phone=18786875698;    #phone字段是字符串类型
+>
+> ​	没有加引号，phone字段索引失效
+
+***模糊查询***
+
+> 如果仅仅是尾部模糊匹配，索引不会失效。如果是头部模糊匹配，`索引将失效`。
+>
+> 示例：
+>
+> ​	select * from 表名 where 索引字段名 like ‘软件%’，
+>
+> ​	尾部模糊匹配，索引不会失效
+>
+> 
+>
+> ​	select * from 表名 where 索引字段名 like ‘%软件’，
+>
+> ​	头部模糊匹配，索引将失效
+
+***or连接的条件***
+
+> 用or连接的条件，如果or连接的的条件中有一列没有索引，那么所有的的索引都将失效。
+>
+> 示例：
+>
+> ​	explain select * from 表名 where 有索引的列=‘值’ or 没有索引的列=‘值’;
+>
+> ​	这条语句前面的列有索引，后面的列没有索引，那么所有的索引都将失效
+
+***数据分布影响***
+
+> 如果mysql评估使用索引比全表扫描更慢，则不会使用索引。
+
+
+
+### SQL提示
+
+> SQL提示，是优化数据库的一个重要手段，简单来说，就是在SQL语句中加入一些人为的提示来达到优化操作的目的。
+
+***use index（建议使用指定索引）***
+
+```mysql
+explain select * from 表名 use index(索引名) where 索引字段='值'；
+```
+
+***ignore index（不使用指定索引）***
+
+```mysql
+explain select * from 表名 ignore index(索引名) where 索引字段='值'；
+```
+
+***force index（强制使用指定索引）***
+
+```mysql
+explain select * from 表名 force index(索引名) where 索引字段='值'；
+```
+
+
+
+
+
+### 覆盖索引
+
+> 查询使用了索引，并且需要返回的列（需要返回的列就是select 字段名），在该索引中已经全部找到，不需要回表查询。这就是覆盖索引。
+>
+> 回表查询：先在二级索引查询，再根据查询返回的结果（主键ID）到聚集索引中查询这一行的数据。
+>
+> 覆盖索引因为没有回表查询，所以性能比较高。
+
+
+
+### 前缀索引
+
+> 当字段类型为字符串（varchar，text等）时，有时候需要索引很长的字符串，这会让索引变得很大，查询时，浪费大量的磁盘IO，影响查询效率。此时可以只将字符串的一部分前缀，建立索引，这样可以大大节约索引空间，从而提升索引效率。
+
+***创建前缀索引语法***
+
+```mysql
+create index 索引名 on 表名(字段名(n));
+#n：代表前缀长度。
+```
+
+> 前缀长度可以根据索引的选择性来决定，而选择性是指不重复的索引值和数据表的记录总数的比值，索引选择性越高则查询效率越高，唯一索引的选择性是1，这是最好的选择性，性能也是最好的。
+>
+> 不重复的索引值和数据表的记录总数的比值：
+>
+> ​	选择性：
+>
+> ​	select count(distinct 要创建前缀索引的字段)/count(*) from 表名;
+>
+> 测试使用多少个字符来创建索引的选择性是多少：
+>
+> select count(distinct substring(要创建前缀索引的字段,start,length))/count(*) from 表名;
+
+
+
+### 单列索引和联合索引
+
+> 单列索引：即一个索引只包含单个列。
+>
+> 联合索引：即一个索引包含多个列。
+>
+> 在业务场景中，如果存在多个查询条件，考虑针对于查询字段建立索引时，建议建立联合索引。
+
+***单列索引的问题***
+
+> 多条件联合查询时，mysql优化器会评估哪个字段的索引效率更高，会选择该索引完成本次查询。
+>
+> ​	
+>
+> ​	select id,name,phone from 表名 where phone=‘手机号’ and name=‘名字’。
+>
+> 如上这条语句，在phone和name都建立了单列索引的前提下，会根据效率高的一个索引完成查询，不会两个索引都使用。这样就会出现回表查询，查询的效率就比较低。
+
+
+
+### 索引设计原则
+
+> 1. 针对于数据量较大，且查询比较频繁的表建立索引。
+> 2. 针对于常作为查询条件（where）、排序（order by）、分组（group by）操作的字段建立索引。
+> 3. 尽量选择区分度高的列作为索引，尽量建立唯一索引，区分度越高，使用索引的效率越高。
+> 4. 如果是字符串类型的字段，字段长度较长，可以针对于字段的特点，建立前缀索引。
+> 5. 尽量使用联合索引，减少单列索引，查询时，联合索引很多时候可以覆盖索引，节省存储空间，避免回表。
+> 6. 要控制索引的数量，索引并不是多多益善，索引越多，维护索引结构的代价就越大，会影响增删改的效率。
+> 7. 如果索引不能存储NULL值，在建表时使用NOT NULL约束它。当优化器知道每列是否包含NULL值时，它可以更好的确定哪个索引最有效的用于查询。
+
+
+
+# SQL优化
+
+## 插入数据优化（insert）
+
+***批量插入***
+
+> 每次insert插入数据的时候都会和数据库建立连接进行传输，性能相对较低，所以插入多条数据的时候推荐批量插入。批量插入的数据一次性也不建议超过一千条。如果插入数据几千上万，那么可以使用多条insert批量插入。
+
+***手动事务提交***
+
+> 在执行insert插入之前先开启事务，insert执行完成后同一提交事务
+
+***主键顺序插入***
+
+> 主键顺序插入：1 2 3 4 5 
+>
+> 主键乱序插入：3 5 2 1 4
+>
+> 主键顺序插入比乱序插入快。
+
+***load命令插入***
+
+> 如果一次性需要插入大批量数据，使用insert插入性能较低，此时可以使用mysql数据库提供的load命令插入。操作如下：
+
+```mysql
+#1. 客户端连接服务端的时候，加上参数--local-infile
+mysql --local-infile -u root -p
+
+#查看本地加载文件导入数据的开关是否开启
+select @@local_infile;
+#2. 设置全局参数local-infile为1，开启从本地加载文件导入数据的开关
+set global local_infile=1;
+
+#3. 执行load命令将准备好的数据，加载到表结构中。
+load data local infile '文件路径' into table 表名 fields terminated by '每列的分隔符' lines terminated by '每行的分割符'
+
+#fields terminated by '每列的分隔符' ：指定每列的分割符是什么。比如是逗号、冒号等。
+#lines terminated by '每行的分割符' ：指定每行的分隔符是什么。一般都是'\n'，换行。
+```
+
+
+
+## 主键优化
+
+数据组织方式：
+
+> 在innoDB存储引擎中，表数据都是根据主键顺序组织存放的，这种存储方式的表称为`索引组织表`（index organized table 简称IOT）。
+
+页分裂：
+
+> 页可以为空，也可以填充一半，也可以填充100%。每个页包含了2~n行数据（如果一行数据很大，超出一定的阈值之后，会出现行溢出），根据主键排列。主键乱序插入的话就有可能出现也分裂
+
+页合并：
+
+> 当删除一行记录时，实际上记录并没有被物理删除，只是记录被标记（flaged）为删除，并且它的空间变得允许被其他记录声明使用。
+>
+> 当页中删除记录达到MERGE_THRESHOLD（合并页的阈值，默认为页的50%，可以自己设置，在创建表或者创建索引时指定），innoDB会开始寻找最靠近的页（前或后）看看是否可以将两个页合并以优化空间使用。
+
+***主键设计原则***
+
+> 1. 满足业务需求的情况下，尽量降低主键的长度。
+> 2. 插入数据时，尽量选择顺序插入，选择使用auto_increment自增主键。
+> 3. 尽量不要使用UUID做主键或者是其他自然主键，如身份证号。
+> 4. 业务操作时，避免对主键的修改。
+
+
+
+##  order by（排序）优化
+
+排序方式：
+
+> 1. Using filesort：通过表的索引或全表扫描，读取满足条件的数据行，然后再排序缓冲区sort buffer中完成排序操作，所有不是通过索引直接返回排序结果的排序都叫 FileSort排序。
+> 2. Using index：通过有序索引顺序扫描直接返回有序数据，这种情况即为using index，不需要额外排序，操作效率高。
+
+***优化建议***
+
+> 1. 根据排序字段建立合适的索引，多字段排序时，遵循最左前缀法则。
+> 2. 尽量使用覆盖索引。
+> 3. 多字段排序，一个升序一个降序，此时需要注意联合索引创建时的规则（asc/desc）。
+> 4. 如果不可避免的出现 filesort，大数据量排序时，可以适当增大排序缓冲区大小 sort_buffer_size(默认256K)。
+
+```mysql
+#查看排序缓冲区大小 sort_buffer_size（单位是字节）
+show variables like 'sort_buffer_size';
+#设置排序缓冲区大小
+set sort_buffer_size = 值; （这个值的单位是字节，如果要设置为1兆，那么需要先换算1M=多少字节）
+```
+
+
+
+## group by（分组）优化
+
+> 1. 在分组操作时，可以为要分组的字段建立索引，通过索引来提高效率。
+> 2. 分组操作时，索引的使用也是需要满足最左前缀法则。
+
+
+
+## limit（分页）优化
+
+> 当limit 2000000,10 ，此时需要mysql排序前2000010记录，仅仅返回2000000-2000010的记录，其他记录丢弃，查询排序的代价非常大。
+>
+> 优化思路：一般分页查询时，通过创建覆盖索引能够比较好的提高性能，可以通过覆盖索引加子查询的形式进行优化。
+
+```mysql
+#例
+#将子查询的结果select id from tb_sku order bu id limit 2000000,10作为一张表来进行联查
+select * from tb_sku t, (select id from tb_sku order bu id limit 2000000,10) a where t.id=a.id
+
+```
+
+
+
+## count优化
+
+> MyISAM引擎把一个表的总行数存在了磁盘上，因此执行count(*)的时候会直接返回这个数，效率很高。（前提是后面没有where条件）。
+>
+> innoDB引擎就比较麻烦，它执行count(*)的时候，需要把数据一行一行的从引擎里面读出来，然后累计计数。
+>
+> 目前对于count来说没有特别好的优化方式。如果要对count进行优化，就只能自己计数。
+
+***count的几种用法***
+
+> count()是一个聚合函数，对于返回的结果集，一行一行的判断，如果不是NULL，累计值加1，否则不加，最后返回累计值。
+>
+> 用法：
+>
+> count(主键)：InnoDB引擎会遍历整张表，把每一行的主键ID值都取出来，返回给服务层；服务层拿到主键后，直接进行累加（主键不可能为null）。            			   
+>
+> count(字段)：
+>
+> ​	没有not null约束：InnoDB引擎会遍历整张表，把每一行的字段都取出来，返回给服务层，服务层判断是否为null，不为null，计数累加。
+>
+> ​	有not null约束：InnoDB引擎会遍历整张表，把每一行的字段值取出来，返回给服务层，直接按行	进行累加
+>
+> count(1)：InnoDB引擎遍历整张表，但不取值。服务层对于返回的每一行，放一个数字“1”进去，直接按行进行累加。
+>
+> count(*)：InnoDB引擎不会把全部字段取出来，而是专门做了优化，不取值，服务层直接按行进行累加。
+>
+> 
+>
+> 按照效率排序：count(字段)<count(主键)<count(1)≈count(*)，所以尽量使用count(\*)。
+
+
+
+## update优化
+
+> InnoDB的行锁是针对索引加的锁，不是针对记录加的锁。如果update语句执行时的where条件中的字段没有索引，或者该索引失效，则会从行锁升级为表锁。
+>
+> 优化建议：给update语句执行时where条件中的字段加索引，或者根据主键ID来作为条件。避免行锁升级为表锁。
+
+
+
+# 视图/存储过程/触发器
+
+## 视图
+
+***介绍***
+
+> 视图（view）是一种虚拟存在的表。视图中的数据并不在数据库中实际存在，行和列的数据来自于定义视图的查询中使用的表，并且是在使用视图时动态生成的。
+>
+> 通俗的讲，视图只保存了查询的sql逻辑，不保存查询结果。所以在创建视图的时候，主要的工作就落在了创建这条sql查询语句上。
+
+***视图操作语法***
+
+```mysql
+#创建视图，视图的创建不仅可以依赖于表来创建，还可以依赖于视图来创建
+#依赖于表创建视图
+create [or replace] view 视图名称[(列名列表)] as select语句 [with [cascaded/local] check option]
+#依赖于视图创建视图
+create [or replace] view 视图名称2[(列名列表)] as select 字段列表 from 视图名称1 [with [cascaded/local] check option]
+#[or replace]：创建视图的时候可以省略，修改视图的时候才用到
+
+#查询视图
+show create view 视图名称;     		#查看创建视图的语句
+select * from 视图名称 [where] 		#查看视图数据。和查表是一样的
+
+#修改视图
+#方式一：
+create or replace view 视图名称[(列名列表)] as select语句 [with/cascaded/local/check option]
+#方式二
+alter view 视图名称[(列名列表)] as select语句 [with/cascaded/local/check option]
+
+#删除视图
+drop view [if exists] 视图名称;
+```
+
+***视图的检查选项***
+
+> 当创建视图时使用了 with [cascaded/local] check option 子句创建视图时，mysql会通过视图检查正在更改的每个行，例如插入、更新、删除，以使其符合视图定义。mysql允许基于另外一个视图来创建视图，他还会检查依赖视图中的规则以保持一致性。为了确定检查的范围，mysql提供了两个选项：cascaded 和 local，默认值为cascaded。
+>
+> 
+>
+> cascaded :视图会根据所有依赖的视图的where条件判断是否允许插入。
+>
+> 视图1：
+>
+> create view v1 as select id,name form student where id <= 20;
+>
+> 视图2：依赖于视图1
+>
+> create view v2 as select id,name form v1 where id >=10 with cascaded check option;
+>
+> 视图3：依赖于视图2和视图1，因为视图2依赖于视图1，所以视图3也依赖视图1。
+>
+> create view v3 as select id,name form v2 where id <= 15;
+>
+> 解析视图1：
+>
+> 因为视图1在创建的时候没有使用检查选项，所以在对视图1插入数据的时候会直接插入成功。插入的数据是插入到基表student中的。
+>
+> 解析视图2：
+>
+> 因为视图2创建的时候使用了with cascaded check option检查选项，而视图2又依赖于视图1，所以在对视图2进行插入的时候，视图1也相当于有了检查选项。所以插入的时候要根据视图2的where条件和视图1的where条件来判断能不能插入。插入的数据是插入到基表student中的。
+>
+> 解析视图3：
+>
+> 因为视图3没有使用检查选项。所以在对视图3进行插入数据的时候，视图3是不需要判断允许插入的，但是视图3依赖于视图2，视图2又依赖于视图1，因为视图2开启了检查选项，所以视图1也相当于开启了检查选项。所有在插入的时候是要满足视图2和视图1的where条件的。插入的数据是插入到基表student中的。
+>
+> 
+>
+> 
+>
+> local：视图会查看所有依赖的视图，如果依赖的视图开启了检查选项，则需要根据其where条件进行判断。
+>
+> 视图1：
+>
+> create view v1 as select id,name form student where id <= 20;
+>
+> 视图2：依赖于视图1
+>
+> create view v2 as select id,name form v1 where id >=10 with local check option;
+>
+> 视图3：依赖于视图2和视图1，因为视图2依赖于视图1，所以视图3也依赖视图1。
+>
+> create view v3 as select id,name form v2 where id <= 15;
+>
+> 解析视图2：
+>
+> 视图2有local检查选项，它的依赖视图1没有检查选项，所以只需要根据视图2的条件来进行判断能不能插入。
+>
+> 解析视图3：
+>
+> 视图3没有检查选项，但是它的依赖视图2有local检查选项，所以需要根据视图2的条件来判断能不能插入。
+
+***视图的更新***
+
+> 要使视图可更新，视图中的行与基础表中的行之间必须存在一对一的关系。如果视图中包含以下任意一项，则该视图不可更新：
+>
+> 1. 聚合函数或窗口函数（sum()、min()、max()、count()等）
+> 2. distinct（去重）
+> 3. group by （分组）
+> 4. having （分组后的条件）
+> 5. union或union all
+
+***视图的作用***
+
+> 1. 简单：
+>
+>    视图不仅可以简化用户对数据的理解，也可以简化他们的操作。那些被经常使用的查询可以定义为视图，从而使得用户不必为以后的操作每次指定全部的条件。
+>
+> 2. 安全：
+>
+>    数据库可以授权，但不能授权到数据库特定行和特定列上。通过视图用户只能查询和修改他们所能见到的数据。
+>
+> 3. 数据独立：
+>
+>    视图可以帮助用户屏蔽真实表结构变化带来的影响。
+
+
+
+## 存储过程
+
+***介绍***
+
+> 存储过程是事先经过编译并存储在数据库中的一段sql语句集合，调用存储过程可以简化开发人员的很多工作，减少数据在数据库和应用服务器之间的传输，对于提高数据处理的效率是有好处的。
+>
+> 存储过程思想上很简单，就是数据库sql语言层面的代码封装和重用。
+
+***特点***
+
+> 1. 封装，复用。
+> 2. 可以接收参数，也可以返回数据。
+> 3. 减少网络交互，效率提升。
+
+### 存储过程基本语法
+
+***创建存储过程***
+
+```mysql
+create procedure 存储过程名称([参数列表])
+begin
+	sql语句
+end;
+```
+
+***调用***
+
+```mysql
+call 名称([参数])
+```
+
+***查看***
+
+```mysql
+#查询指定数据库的存储过程及状态信息
+select * from information_schema.routines where routine_schema='指定数据库';
+
+information_schema.routines：存储过程创建后是存放在系统information_schema数据库的routines视图中。
+routine_schema：这个字段存放的就是创建视图的数据库名称。
+
+#查看创建存储过程的语句
+show create procedure 存储过程名称;
+
+```
+
+***删除***
+
+```mysql
+drop procedure 存储过程名称;
+```
+
+
+
+### 变量
+
+> 系统变量是mysql服务器提供，不是用户定义的，属于服务层面。分为全局变量（global）、会话变量（session）。
+
+#### 系统变量
+
+***查看系统变量***
+
+```mysql
+#查看所有系统变量
+show [session | global] variables;
+
+#通过like模糊匹配方式查找变量
+show [session | global] variables like '......';
+
+#查看指定变量的值
+select @@[session. | global.]系统变量名;
+```
+
+***设置系统变量***
+
+```mysql
+#方式一
+set [session | global] 系统变量名=值;
+
+#方式二
+set @@[session. | global.]系统变量名=值;
+```
+
+> 【注意】：
+>
+> ​	如果没有指定session/global，默认是session会话变量。
+>
+> ​	mysql服务重新启动后，所设置的全局参数会失效，要想不失效，可以在/etc/my.cnf中配置。
+
+#### 用户自定义变量
+
+> 用户自定义变量是根据需要自己定义的变量，用户变量不用提前声明，在用的时候直接“@变量名”使用即可。其作用域为当前连接。
+
+***自定义变量赋值***
+
+```mysql
+#方式一
+set @变量名 = 值[,@变量名 = 值]...;    #可以同时给多个变量赋值
+
+#方式二
+set @变量名 := 值[,@变量名 = 值]...;
+
+#方式三
+select @变量名 := 值[,@变量名 = 值]...;
+
+#方式四
+select 字段名 into @变量名 from 表名;
+```
+
+***变量使用***
+
+```mysql
+select @变量名[,@变量名]...;    #可以同时查看多个变量名
+```
+
+> 【注意】：用户定义的变量无需进行声明或初始化，只不过获取到的值为NULL。
+
+
+
+#### 局部变量
+
+> 局部变量是根据需要定义在局部生效的变量，访问之前，需要declare声明。可用作存储过程内的局部变量和输入参数，局部变量的范围是在begin … end之内声明的。
+
+***局部变量声明***
+
+```mysql
+declare 变量名 变量类型 [default 值];   #需要在存储过程begin ... end之内声明。
+```
+
+***局部变量赋值***
+
+```mysql
+#方式一
+set 变量名 = 值;
+
+#方式二
+set 变量名 := 值;
+
+#方式三
+select 字段名 into 变量名 from 表名 ...;
+```
+
+
+
+### if判断
+
+***语法***
+
+```mysql
+if 条件1 then
+	...
+elseif 条件2 then
+	...
+else
+	...
+end if;
+```
+
+
+
+### 参数
+
+| 类型  | 含义                                             | 备注 |
+| ----- | ------------------------------------------------ | ---- |
+| in    | 该类型参数作为输入，也就是需要调用时传入值       | 默认 |
+| out   | 该类型参数作为输出，也就是该参数可以作为返回值   |      |
+| inout | 该类型参数既可以作为输入参数，也可以作为输出参数 |      |
+
+***用法***
+
+```mysql
+create procedure 存储过程名称([in/out/inout 参数名1 参数类型,in/out/inout 参数名2 参数类型...])
+begin
+	sql语句
+end;
+
+call 存储过程名称([输入参数传参,输出参数定义一个变量来接收]);
+#如果是inout类型，那么调用的时候需要定义一个变量来进行传入和接收。
+	set @变量 = 值
+	call 存储过程名称(@变量)
+	select @变量;
+```
+
+
+
+### case
+
+***语法***
+
+```mysql
+#语法一
+case 值
+	when 值1 then
+		...
+	when 值2 then
+		...
+	else
+		...
+end case;
+
+#语法二
+case 
+	when 条件表达式1(如果成立) then
+		...
+	when 条件表达式2(如果成立) then 
+		...
+	else
+		...
+end case;
+```
+
+
+
+### while循环
+
+> while循环是有条件的循环控制语句。满足条件后，再执行循环体中的sql语句。
+
+***语法***
+
+```mysql
+#先判断条件，如果条件为true，则执行sql语句，否则不执行。
+while 条件 do
+	sql语句
+end while;
+```
+
+
+
+### repeat循环
+
+> repeat是有条件的循环控制语句，当满足条件的时候退出循环。
+
+***语法***
+
+```mysql
+#先执行一次sql语句。然后判断条件是否满足，如果满足，则退出循环；如果不满足，则继续下一次循环。
+repeat
+	sql语句
+	until 条件
+end repeat;
+```
+
+
+
+### loop循环
+
+> loop实现简单的循环，如果不在sql逻辑中增加退出循环的条件，可以用其实现简单的死循环。loop可以配合以下两个语句使用：
+>
+> ​	leave 循环名：配合循环使用，退出循环。
+>
+> ​	iterate 循环名：必须用在循环中，作用是跳过当前循环剩下的语句，进入下一次循环。
+
+***语法***
+
+```mysql
+[循环名:]loop
+	sql逻辑
+end loop [循环名]
+```
+
+
+
+### 游标
+
+> 游标（cursor）是用来存储查询结果集的数据类型，在存储过程和函数中可以使用游标对结果集进行循环的处理。游标的使用包括游标的声明、open、fetch和close。
+
+***语法***
+
+```mysql
+#声明游标
+declare 游标名称 cursor for 查询语句;	  #将sql语句的查询结果封装到游标。
+
+#打开游标
+open 游标名称;
+
+#获取游标记录
+fetch 游标名称 into 变量1,[变量2...]；     #需要多少个变量取决于查询语句返回多少个字段。
+
+#关闭游标
+close 游标名称;
+```
+
+
+
+### 条件处理程序
+
+> 条件处理程序（handler）可以用来定义在流程控制结构执行过程中遇到问题时的相应的处理步骤。
+
+***语法***
+
+```mysql
+declare 类型 handler for 条件值[,条件值...] 退出时需要做什么的sql语句;
+#handler for 条件值：满足这个条件才执行退出或继续
+
+#类型：
+	continue：继续执行当前程序
+	exit：终止当前程序
+#条件值
+	sqlstate 值：状态码，如02000，就是程序报错的代码
+	sqlwarning：所有以01开头的sqlstate代码的简写
+	not found：所有以02开头的sqlstate代码的简写
+	sqlexception：所有没有被sqlwarning或not found捕获的sqlstate代码的简写
+	
+#例1：
+	declare exit handler for sqlstate '02000' close u_cursor;
+	创建条件处理程序，在代码报错时，sqlstate状态码为02000的时候退出程序，退出程序的时候关闭游标。
+#例2：
+	declare exit handler for not found close u_cursor;
+	创建条件处理程序，在代码报错时，sqlstate状态码为02开头的就退出程序，退出程序的时候关闭游标。
+```
+
+
+
+## 存储函数
+
+> 存储函数是有返回值的存储过程，存储函数的参数只能是in类型的。存储函数基本上都可以用存储过程代替，存储函数可以看作就是有返回值的存储过程。
+
+***语法***
+
+```mysql
+create function 存储函数名称([参数列表])
+returns 类型 [characteristic ...] 	#returns 类型：指定返回值的类型。
+begin
+	sql语句
+	return ...;   #返回什么
+end;
+
+#characteristic：指定存储函数的特性
+	1. deterministic：相同的输入参数总是产生相同的结果。
+	2. no sql：不包含sql语句。
+	3. reads sql data：包含读取数据的语句，但不包含写入数据的语句。
+	
+```
+
+
+
+## 触发器
+
+***介绍***
+
+> 触发器是与表有关的数据库对象，指在insert/update/delete之前或之后，触发并执行触发器中定义的sql语句集合。触发器的这种特性可以协助应用在数据库端确保数据的完整性，日志记录，数据校验等操作。
+>
+> 使用别名old 和 new来引用触发器中发生变化的记录内容，这与其他的数据库是相似的。现在触发器还只支持行级触发，不支持语句级触发。
+>
+> | 触发器类型   | new 和 old                                             |
+> | ------------ | ------------------------------------------------------ |
+> | insert触发器 | new 表示将要新增或已经新增的数据                       |
+> | update触发器 | old 表示修改之前的数据，new 表示将要修改或修改后的数据 |
+> | delete触发器 | old 表示将要删除或已经删除的数据                       |
+>
+> 
+
+### 触发器语法
+
+***创建触发器***
+
+```mysql
+create trigger 触发器名称
+before/after insert/update/delete	
+on 表名 for each row  
+begin
+	触发器触发后执行sql语句。
+and;
+
+#before/after：在之前还是之后触发
+#insert/update/delete：什么类型的触发器
+#on 表名：哪一张表的数据进行增/删/改的时候触发
+#for each row ：行级触发器
+```
+
+***查看***
+
+```mysql
+show triggers;
+```
+
+***删除***
+
+```mysql
+drop trigger [数据库名.]触发器名称;  
+#如果没有指定数据库，默认为当前数据库
+```
+
+
+
+# 锁
+
+***介绍***
+
+> 锁是计算机协调多个进程或线程并发访问某一资源的机制。在数据库中，除传统的计算机资源（CPU、RAM、I/O）的争用之外，数据也是一种供许多用户共享的资源。如何保证数据并发访问的一致性、有效性是所有数据库必须解决的一个问题，锁冲突也是影响数据库并发访问性能的一个重要因素。从这个角度来说，锁对数据库而言显得尤其重要，也更加复杂。
+
+***分类***
+
+> MySQL中的锁，按照锁的粒度分为三类：
+>
+> 1. 全局锁：锁定数据库中的所有表。
+> 2. 表级锁：每次操作锁住整张表。
+> 3. 行级锁：每次操作锁住对于的行数据。
+
+
+
+## 全局锁
+
+***介绍***
+
+> 全局锁就是对整个数据库实例加锁，加锁后整个实例就处于只读状态，后续的DML的写语句，DDL语句，已经更新操作的事务提交语句都将被阻塞。
+>
+> 全局锁典型的使用场景：做全库的逻辑备份，对所有的表进行锁定，从而获取一致性视图，保证数据的完整性。
+
+***演示--一致性数据备份***
+
+```mysql
+#登录mysql数据库 加上全局锁
+flush tables with read lock;
+
+#退出数据库 执行备份
+mysqldump -uroot -p密码 数据库名 > 备份名.sql
+例：备份linux下的数据库
+	mysqldump -uroot -p123456 test01 > /root/test01.sql
+例：备份linux下的数据库到windows的E盘
+	mysqldump -h 192.168.1.193 -uroot -p123456 test01 > E:\test01.sql
+	
+#登录mysql数据库 解除全局锁
+unlock tables;
+```
+
+***特点***
+
+> 数据库中加全局锁，是一个比较重的操作，存在以下问题：
+>
+> 1. 如果在主库上备份，那么备份期间都不能执行更新，业务基本上就得停。
+> 2. 如果在从库上备份，那么在备份期间从库不能执行主库同步过来的二进制日志（binlog），会导致主从延
+>
+> 
+>
+> 在innoDB引擎中，我们可以在备份时加上参数--single-transaction 参数来完成不加锁的一致性数据备份
+>
+> 用法:
+>
+> ​	mysqldump \--single-transaction -uroot -p密码 数据库 > 备份名称.sql
+
+***不加锁的一致性备份***
+
+```mysql
+mysqldump --single-transaction -uroot -p密码 数据库 > 备份名称.sql
+
+#Linux下备份数据库
+mysqldump --single-transaction -uroot -p123456 test01 > /root/test01.sql
+
+#windows备份Linux数据库
+mysqldump --single-transaction -h 192.168.1.193 -uroot -p123456 test01 > E:\test0001.sql
+```
+
+
+
+## 表级锁
+
+***介绍***
+
+> 表级锁，每次操作锁住整张表。锁定粒度大，发生锁冲突的概率最高，并发度最低。应用在MyISAM、InnoDB、BDB等存储引擎中。
+
+***分类***
+
+> 对于表级锁，主要分为以下三类：
+>
+> 1. 表锁。
+> 2. 元数据锁（meta data lock，MDL）。
+> 3. 意向锁。
+
+
+
+### 表锁
+
+> 对于表锁，分为两类：
+>
+> 1. 表共享读锁（read lock）：读锁不会阻塞其他客户端的读，但是会阻塞其他客户端的写。
+> 2. 表独占写锁（write lock）：写锁既会阻塞其他客户端的读，也会阻塞其他客户端的写。
+
+***语法***
+
+```mysql
+#加锁，可以同时给多张表加锁
+lock tables 表名 ... read/write;
+
+#释放锁
+unlock tables; 或者 断开客户端连接
+```
+
+
+
+### 元数据锁（meta data lock，MDL）
+
+> 元数据锁加锁过程是系统自动控制，无需显式使用，在访问一张表的时候会自动加上。元数据锁主要作用是维护元数据（表结构）的数据一致性，在表上有活动（未提交）的事务的时候，不可以对元数据（表结构）进行写入操作。
+>
+> 
+>
+> 元数据锁的作用：为了避免DML与DDL冲突，保证读写的正确性。
+>
+> 
+>
+> 当在未提交的事务中对一张表进行增删改查的时候，会自动加上MDL读锁shared_read或者写锁shared_write（这两个锁是共享、兼容的）；当对表结构进行变更操作的时候，加上MDL写锁exclusive（这个锁与前两个锁是互斥的）。当事务提交后，锁会自动释放。
+
+***查看元数据锁***
+
+```mysql
+select object_type,object_schema,object_name,lock_type,lock_duration from performance_schema.metadata_locks;
+```
+
+
+
+### 意向锁
+
+> 为了避免DML在执行时，加的行锁与表锁的冲突，在InnoDB中引入了意向锁，使得表锁不用检查每行数据是否加锁，使用意向锁来减少表锁的检查。
+>
+> 例：当客户端1开启事务执行update语句后，会对该行加上行锁，并加一个意向锁；此时客户端2要对该表加上表锁，那么就需要看意向锁与要加的表锁是否兼容，如果兼容，则成功加上表锁，如果不兼容，则阻塞。
+
+***意向锁分类及语法***
+
+> 1. 意向共享锁（IS）：由语句select … lock in share mode 添加。
+> 2. 意向排他锁（IX）：由语句insert、update、delete、select … for update 添加。
+
+***意向锁与表锁的兼容情况***
+
+> 1. 意向共享锁（IS）：与表锁共享锁（read）兼容，与表锁独占锁（write）互斥。
+> 2. 意向排他锁（IX）：与表锁共享锁（read）及独占锁（write）都互斥。意向锁之间不会互斥。
+
+***查看意向锁及行锁的加锁情况***
+
+```mysql
+select object_schema,object_name,index_name,lock_type,lock_mode,lock_data from performance_schema.data_locks;
+```
+
+
+
+## 行级锁
+
+***介绍***
+
+> 行级锁，每次操作锁住对应的行数据。锁定粒度最小，发生锁冲突的概率最低，并发度最高。应用再innodb存储引擎中。
+>
+> innoDB的数据是基于索引组织的，行锁是通过对索引上的索引项加锁来实现的，而不是对记录加的锁。
+
+***分类***
+
+> 对于行级锁，主要分为三类：
+>
+> 1. 行锁（Record Lock）：锁定单个记录的锁，防止其他事务对此进行update和delete。在RC（读取已提交）、RR（可重复读）隔离级别下都支持。
+> 2. 间隙锁（Gap Lock）：锁定索引记录间隙（不含该记录），确保索引记录间隙不变，防止其他事务在这个间隙进行insert，产生幻读。在RR（可重复读）隔离级别下支持。
+> 3. 临键锁（Next-Key Lock）:行锁和间隙锁的组合，同时锁住数据，并锁住数据前面的间隙Gap。在RR（可重复读）隔离级别下支持。
+
+
+
+### 行锁
+
+> 两种类型的行锁：
+>
+> 1. 共享锁（S）：允许一个事务去读一行，阻止其他事务获得相同数据集（就是加了共享锁的行）的排他锁。
+> 2. 排他锁（X）：允许获取排他锁的事务更新数据，阻止其他事务获得相同数据集的共享锁和排他锁。
+>
+> 共享锁与共享锁之间兼容。
+>
+> 排他锁与排他锁或共享锁冲突。
+
+***增删改查执行时加的行锁的类型***
+
+| SQL                         | 行锁类型   | 说明                                       |
+| --------------------------- | ---------- | ------------------------------------------ |
+| insert …                    | 排他锁     | 自动加锁                                   |
+| update …                    | 排他锁     | 自动加锁                                   |
+| delete …                    | 排他锁     | 自动加锁                                   |
+| select(正常)                | 不加任何锁 |                                            |
+| select … lock in share mode | 共享锁     | 需要手动在select之后加上lock in share mode |
+| select … for update         | 排他锁     | 需要手动在select之后加上 for update        |
+
+***注意***
+
+> 默认情况下，InnoDB在repeatable read事务隔离级别运行，InnoDB使用next-key锁进行搜索和索引扫描，以防止幻读。
+>
+> 1. 针对唯一索引进行检索时，对已存在的记录进行等值匹配时，将会自动优化为行锁。
+> 2. InnoDB的行锁是针对于索引加的锁，不通过索引条件检索数据，那么InnoDB将对表中的所有记录加锁，此时 就会升级为表锁。
+
+
+
+### 间隙锁/临键锁
+
+> 默认情况下，InnoDB在repeatable read事务隔离级别运行，InnoDB使用next-key锁进行搜索和索引扫描，以防止幻读。
+>
+> 1. 索引上的等值查询（唯一索引），给不存在的记录加锁时，优化为间隙锁。
+> 2. 索引上的等值查询（普通索引），向右遍历时最后一个值不满足查询需求时，next-key lock退化为间隙锁
+> 3. 索引上的范围查询（唯一索引），会访问到不满足条件的第一个值为止。
+>
+> 【注意】：间隙锁唯一的目的就是防止其他事务插入间隙。间隙锁可以共存，一个事务采用的间隙锁不会阻止另一个事务在同一个间隙上采用间隙锁。
+
+
+
+
+
+# InnoDB引擎
+
+## InnoDB逻辑存储结构
+
+> ![1681112447402](C:\Users\rth\AppData\Local\Temp\1681112447402.png)
+>
+> 
+>
+> 1. 表空间（ibd文件）：一个mysql实例可以对于多个表空间，用于存储记录、索引等数据。
+> 2. 段：分为数据段（Leaf node segment）、索引段（Non-leaf node segment）、回滚段（Rollback segment），InnoDB是索引组织表，数据段就是B+树的叶子节点，索引段即为非叶子节点。段用来管理多个extent(区)。
+> 3. 区：表空间的单元结构，每个区的大小为1M。默认情况下，InnoDB存储引擎页大小为16K，即一个区中一共有64个连续的页。
+> 4. 页：是InnoDB存储引擎磁盘管理的最小单元，每个页的大小默认为16k。为了保证页的连续性，InnoDB存储引擎每次从磁盘申请4-5个区。
+> 5. 行：InnoDB存储引擎数据是按行进程存放的。
+
+
+
+## InnoDB架构
+
+> mysql5.5版本开始，默认使用InnoDB存储引擎，它擅长事务处理，具有崩溃恢复特性，在日常开发中使用非常广泛。下面是InnoDB架构图，左侧为内存结构，右侧为磁盘结构：
+>
+> ![1681113202180](C:\Users\rth\AppData\Local\Temp\1681113202180.png)
+
+
+
+### 内存结构
+
+> ![1681113244010](C:\Users\rth\AppData\Local\Temp\1681113244010.png)
+>
+> 1. Buffer Pool（缓冲池）：是内存中的一个区域，里面可以缓存磁盘上经常操作的真实数据，在执行增删改查操作时，先操作缓冲池中的数据（若缓冲池没有数据，则从磁盘加载并缓存），然后再以一定频率刷新到磁盘，从而减少磁盘IO，加快处理速度。
+>
+>    缓冲池以Page页为单位，底层采用链表数据结构管理Page。根据状态，将Page分为三种类型：
+>
+>    free page：空闲page，未被使用。
+>
+>    clean page：被使用page，数据没有被修改过。
+>
+>    dirty page：脏页，被使用page，数据被修改过，页中数据与磁盘数据产生了不一致。 
+>
+> 2. Change Buffer ：更改缓冲区（针对于非唯一二级索引），在执行DML语句时，如果这些数据page没有在Buffer Pool中，不会直接操作磁盘，而会将数据变更存在更改缓冲区Change Buffer中，在未来数据被读取时，再将数据合并恢复到Buffer Pool中，再将合并后的数据刷新到磁盘中。
+>
+>    Change Buffer的意义是什么：
+>
+>    与聚集索引不同，二级索引通常是非唯一的，并且以相对随机的顺序插入二级索引。同样，删除和更新可能会影响索引树种不相邻的二级索引页，如果每一次操作磁盘，会造成大量的磁盘IO。有了Change Buffer之后，我们可以在缓冲池中进行合并处理，减少磁盘IO。
+>
+> 3. Adaptive Hash Index：自适应hash索引，用于优化对Buffer Pool数据的查询。InnoDB存储引擎会监控对表上各索引页的查询，如果观察到hash索引可以提升速度，则建立hash索引，称之为自适应hash索引。
+>
+>    自适应哈希索引，无需人工干预，是系统根据情况自动完成。
+>
+>    参数：adaptive_hash_index
+>
+> 4. Log Buffer：日志缓冲区，用来保存要写入到磁盘中的log日志数据（redo log、undo log），默认大小为16M，日志缓冲区的日志会定期刷新到磁盘中。如果需要更新、插入或删除许多行的事务，增加日志缓冲区的大小可以节省磁盘IO。
+>
+>    参数：innodb_log_buffer_size   #缓冲区大小
+>
+>    ​     innodb_flush_log_at_trx_commit   #日志刷新到磁盘的时机
+>
+>    ​	日志刷新到磁盘的时机：
+>
+>    ​		0：表示每秒将日志写入并刷新到磁盘一次
+>
+>    ​		1：日志在每次事务提交时写入并刷新到磁盘
+>
+>    ​		2：日志在每次事务提交后写入，并每秒刷新到磁盘一次		
+
+
+
+### 磁盘结构
+
+> ![1681115433113](C:\Users\rth\AppData\Local\Temp\1681115433113.png)
+>
+> 1. System Tablespace：系统表空间，是更改缓冲区的存储区域。如果表是在系统表空间而不是每个表文件或通用表空间中创建的，它也可能包含表和索引数据。
+>
+>    参数：innodb_data_file_path
+>
+> 2. File-Per-Table Tablespace：每个表的文件表空间，包含单个InnoDB表的数据和索引，并存储在文件系统上的单个数据文件中。
+>
+>    参数：innbodb_file_per_table
+>
+> 3. General Tablespaces：通用表空间，需要通过create tablespace语法创建通用表空间，在创建表时，可以指定该表空间 
+>
+>    语法：
+>
+>    create tablespace 表空间名字 add datafile ‘文件名字.ibd’ engine=innodb; #创建表空间
+>
+>    create table xxx … tablespace 文件名字;  #创建表的时候指定表的数据存放在这个表空间
+>
+> 4. Undo Tablespaces：撤销表空间，MySQL实例在初始化时会自动创建两个默认的undo表空间（初始大小为16M），用于存储undo log日志。
+>
+> 5. Temporary Tablespaces：InnoDB使用会话临时表空间和全局临时表空间。存储用户创建的临时表等数据。
+>
+> 6. Doublewrite Buffer Files：双写缓冲区，innoDB引擎将数据页从Buffer Pool刷新到磁盘前，先将数据页写入双写缓冲区文件中，便于系统异常时恢复数据。#ib_16384_0.dblwr和#ib_16384_1.dblwr这两个文件
+>
+> 7. Redo Log：重做日志，是用来实现事务的持久性。该日志文件由两部分组成，重做日志缓冲（redo log buffer）以及重做日志文件（redo log），前者是在内存中，后者在磁盘中。当事务提交之后会把所有修改信息都会存到该日志中，用于在刷新脏页到磁盘时，发生错误时，进行数据恢复使用。
+>
+>    以循环方式写入重做日志文件，涉及两个文件：ib_logfile0 和 ib_logfile1
+
+
+
+### 后台线程
+
+> ![1681117348195](C:\Users\rth\AppData\Local\Temp\1681117348195.png)
+>
+> 后台线程的作用就是将innoDB存储引擎的缓冲池中的数据在合适的时机刷新到磁盘文件中。
+>
+> 对于InnoDB存储引擎后台线程有以下四类：
+>
+> 1. Master Thread：核心后台线程，负责调度其他线程，还负责将缓冲池中的数据异步刷新到磁盘中，保持数据的一致性，还包括脏页的刷新、合并插入缓存、undo页的回收。
+>
+> 2. IO Thread：在InnoDB存储引擎中大量使用了AIO（异步非阻塞IO）来处理IO请求，这样可以极大的提高数据库的性能，而IO Thread主要负责这些IO请求的回调。有以下四类：
+>
+>    | 线程类型             | 默认个数 | 职责                           |
+>    | -------------------- | -------- | ------------------------------ |
+>    | Read thread          | 4        | 负责读操作                     |
+>    | Write thread         | 4        | 负责写操作                     |
+>    | Log thread           | 1        | 负责将日志缓冲区刷新到磁盘     |
+>    | Insert buffer thread | 1        | 负责将写入缓冲区内容刷新到磁盘 |
+>
+> 3. Purge Thread：主要用于回收事务以及提交的undo log，在事务提交之后，undo log可能不用了，就用它来回收
+>
+> 4. Page Cleaner Thread：协助Master Thread刷新脏页到磁盘的线程，它可以减轻Master Thread的工作压力，减少阻塞。
+
+
+
+## 事务原理
+
+> ![1681177984834](C:\Users\rth\AppData\Local\Temp\1681177984834.png)
+>
+> 事务中的原子性、一致性和持久性是由redo log和undo log来保障的。隔离性是由锁机制和mvcc（多版本并发控制）来实现的。
+
+***redo log***
+
+> Redo Log：重做日志，记录的是事务提交时数据页的物理修改，是用来实现事务的持久性。
+>
+> 该日志文件由两部分组成，重做日志缓冲（redo log buffer）以及重做日志文件（redo log），前者是在内存中，后者在磁盘中。当事务提交之后会把所有修改信息都会存到该日志中，用于在刷新脏页到磁盘时，发生错误时，进行数据恢复使用。
+>
+> ![1681178541440](C:\Users\rth\AppData\Local\Temp\1681178541440.png)
+
+
+
+***undo log***
+
+> 回滚日志，用于记录数据被修改前的信息，实现事务的原子性。
+>
+> 作用包含两个：提供回滚和MVCC（多版本并发控制）。
+>
+> undo log 和 redo log 不一样， redo log 记录的是物理日志，undo log 记录的是逻辑日志。可以认为当delete一条记录时，undo log中会记录一条对于的insert记录，反之亦然，当update一条记录时，它记录一条相反的update记录（执行update之前的数据是什么）。当执行rollback时，就可以从undo log中的逻辑记录读取到相应的内容并进行回滚。
+>
+> undo log销毁：undo log在事务执行时产生，事务提交时，并不会立即删除undo log，因为这些日志还可用于MVCC。
+>
+> undo log存储：undo log采用段的方式进行管理和记录，存放在前面介绍的rollback segment回滚段中，内部包含1024个undo log segment。
+
+
+
+## MVCC
+
+### 基本概念
+
+***当前读***
+
+> 读取的是记录的最新版本，读取时还要保证其他并发事务不能修改当前记录，会对读取的记录加锁。对于我们日常的操作，如：select … lock in share mode（共享锁），select … for update、update、insert、delete（排他锁），都是一种当前读。
+
+***快照读***
+
+> 简单的select（不加锁）就是快照读，快照读读取的是记录数据的可见版本，又可能是历史数据，不加锁，是非阻塞读。
+>
+> Read Committed（读已提交）：每次select，都生成一个快照读。
+>
+> Repeatable Read（可重复读）：开启事务后第一个select语句才是快照读的地方。
+>
+> Serializable（串行化）：快照读会退化为当前读。
+
+***介绍***
+
+> MVCC全称 Multi-Version Concurrency Control，多版本并发控制。指维护一个数据的多个版本，使得读写操作没有冲突，快照读为MySQL实现MVCC提供了一个非阻塞读功能。MVCC的具体实现，还需要依赖于数据库记录中的三个隐式字段、undo log日志、readview。
+
+***MVCC的作用***
+
+> 在快照读的时候，通过MVCC查找对应的历史版本
+
+### 记录中的隐藏字段
+
+| 隐藏字段    | 含义                                                         |
+| ----------- | ------------------------------------------------------------ |
+| DB_TRX_ID   | 最近修改事务ID，记录插入这条记录或最后一次修改该记录的事务ID |
+| DB_ROLL_PTR | 回滚指针，指向这条记录的上一个版本，用于配合undo log，指向上一个版本 |
+| DB_ROW_ID   | 隐藏主键，如果表结构没有指定主键，将会生成该隐藏字段。       |
+
+> ibd2sdi 表空间名   #查看隐藏字段
+
+
+
+### undo log
+
+> 回滚日志，在insert、update、delete的时候产生的便于数据回滚的日志。
+>
+> 当insert的时候，产生的undo log日志只在回滚时需要，在事务提交后，可被立即删除。
+>
+> 而当update、delete的时候，产生的undo log日志不仅在回滚时需要，在快照读时也需要，不会立即被删除
+
+
+
+***undo log版本链***
+
+> ![1681182316694](C:\Users\rth\AppData\Local\Temp\1681182316694.png)
+>
+> 不同事务或相同事务对同一条记录进行修改，会导致该记录的undo log生成一条记录版本链表，链表的头部是最新的旧记录，链表尾部是最早的旧记录。
+
+
+
+### readview
+
+> readview（读视图），是 快照读 SQL执行时MVCC提取数据的依据，记录并维护当前活跃的事务（未提交的事务）id。
+>
+> readview中包含四个核心字段：
+>
+> | 字段           | 含义                                                 |
+> | -------------- | ---------------------------------------------------- |
+> | m_ids          | 当前活跃的事务ID集合                                 |
+> | min_trx_id     | 最小活跃事务ID                                       |
+> | max_trx_id     | 预分配事务ID，当前最大事务ID+1（因为事务ID是自增的） |
+> | creator_trx_id | readview创建者的事务ID                               |
+>
+> 
+
+
+
+***版本链数据访问规则***
+
+> trx_id：代表当前事务ID。
+>
+> 规则1. trx_id == creator_trx_id：可以访问该版本，说明数据是当前这个事务更改的。
+>
+> 规则2. trx_id < min_trx_id ：可以访问该版本，说明数据已经提交了。
+>
+> 规则3. trx_id > man_trx_id ：不可以访问该版本，说明该事务是在readview生成后才开启。
+>
+> 规则4. min_trx_id <= trx_id <= max_trx_id ：如果trx_id不在m_ids中是可以访问该版本的。说明 	数据已经提交。
+>
+> 
+>
+> 不同的隔离级别，生成readview的时机不同：
+>
+> read committed：在事务中每一次执行快照读时生成readview。
+>
+> repeatable read：仅在事务中第一次执行快照读时生成readview，后续复用该readview。
+
+
+
+
+
+# MySQL管理
+
+## 系统数据库
+
+> mysql数据库安装完成后，自带了以下四个数据库，具体作用如下：
+>
+> | 数据库             | 含义                                                         |
+> | ------------------ | ------------------------------------------------------------ |
+> | mysql              | 存储MySQL服务器正常运行所需要的各种信息（失去、主从、用户、权限等） |
+> | information_schema | 提供了访问数据库元数据的各种表和视图，包含数据库、表、字段类型及访问权限等。 |
+> | performance_schema | 为mysql服务器运行时状态提供了一个底层监控功能，主要用于搜集数据库服务器性能参数。 |
+> | sys                | 包含了一系列方便DBA和开发人员利用performance_schema性能数据库进行性能调优和诊断的视图。 |
+
+
+
+## 常用工具
+
+### mysql
+
+> 该mysql不是指mysql服务，而是指mysql的客户端工具。
+
+```shell
+语法：
+	mysql [option] [database]
+选项：
+	-u ：指定用户名
+	-p ：指定密码
+	-h ：指定服务器ip或域名
+	-P ：指定连接端口
+	-e ：执行sql语句并退出
+
+-e选项可以在mysql客户端执行sql语句，而不用连接到mysql数据库再执行，对于一些脚本，这种方式尤其方便
+	示例：
+		mysql -uroot -p123456 test01 -e "select * from student"
+```
+
+
+
+### mysqladmin
+
+> mysqladmin是一个执行管理操作的客户端程序。可以用它来检查服务器的配置和当前状态、创建并删除数据库等。
+
+```sh
+通过帮助文档查看选项：
+	mysqladmin --help
+
+示例：
+	mysqladmin -uroot -p123456 create db01
+	mysqladmin -uroot -p123456 version
+```
+
+
+
+### mysqlbnlog日志管理
+
+> 由于服务器生成的二进制日志文件以二进制格式保存，所以如果想要检查这些文本的文本格式，就会使用到mysqlbinlog日志管理工具
+
+```sh
+语法：
+	mysqlbinlog [option] 日志文件
+选项：
+	-d，--database=name：指定数据库名称，只列出指定数据库相关操作。
+	-o ：忽略掉日志中的前n行命令。
+	-r，--result-file=name ：将输出的文件格式日志输出到指定文件。
+	-s ：显示简单格式，省略掉一些信息。
+	--start-datatime=date1 --stop-datatime=date2 ：指定日期间隔内的所有日志。
+```
+
+
+
+### mysqlshow
+
+> mysqlshow客户端对象查找工具，用来很快的查找存在哪些数据库、数据库中的表、表中的列或索引。
+
+```sh
+语法：
+	mysqlshow [option] [db_name] [table_name] [col_name]
+选项：
+	--count ：显示数据库及表的统计信息（数据库、表均可不指定）。
+	-i ：显示数据库或指定表的状态信息。
+示例：
+	#查询所有数据库的的表的数量及表中记录的数据
+	mysqlshow -uroot -p123456 --count
+	
+	#查询test01数据库中每个表中的字段数及行数
+	mysqlshow -uroot -p123456 --count test01
+	
+	#查询test01数据库中tb_user表的详细情况
+	mysqlshow -uroot -p123456 --count test01 tb_user
+```
+
+
+
+### mysqldump备份
+
+> mysqldump客户端工具用来备份数据库或在不同数据库之间进行数据迁移。备份内容包含创建表，及插入表的sql语句。
+
+```sh
+语法：
+	#备份数据库下的表，如果不指定表，则是所有表
+	mysqldump [option] db_name [table]	
+    
+    #备份整个数据库
+	mysqldump [option] --database/-B db_name   
+	
+	#备份所有数据库。
+	mysqldump [option] --all-database/-A
+连接选项：
+	-u ：指定用户名
+	-p ：指定密码
+	-h ：指定服务器ip或域名
+	-P ：指定连接端口
+输出选项：
+	--add-drop-database ：在每个数据库出创建语句前加上drop database语句。
+	--add-drop-table ：在每个数据库出创建语句前加上drop table语句,默认开启，不开启（--skip-add-	 drop-table）。
+	-n ：不包含数据库的创建语句。
+	-t ：不包含表的创建语句。
+	-d ：不包含数据，只有表结构。
+	-T ：自动生成两个文件，一个.sql文件，创建表结构的语句；一个.txt文件，数据文件。
+
+-T参数示例：
+	mysqldump -uroot -p123456 -T /root/mysqldump/ test01 student
+	使用 -T 参数备份报错Got error: 1290，代表指定目录不是mysql信任的目录。
+	查看信任的目录：show variables like '%secure_file_priv%';
+	然后将保存的目录换为查到的信任的目录即可：
+		mysqldump -uroot -p123456 -T /var/lib/mysql-files/ test01 student
+```
+
+
+
+### mysqlimport/source导入
+
+> mysqlimport是客户端数据导入工具，用来导入mysqldump 加 -T 参数备份的文本文件。
+
+```sh
+语法：
+	mysqlimport [option] db_name 文本文件 
+示例：
+	mysqlimport -uroot -p123456 test02 /var/lib/mysql-file/tb_user.txt
+```
+
+```sh
+如果需要导入sql文件，可以使用mysql中的source指令：
+语法：
+	source /root/xxx.sql
+```
+
+
+
+
+
+
+
+
+
+# 运维篇：
+
+
+
+# 日志
+
+## 错误日志
+
+> 错误日志是MySQL中最重要的日志之一，它记录了当mysqld启动和停止时，以及服务器在运行过程中发生任何严重错误时的相关信息。当数据库出现任何故障导致无法正常使用时，建议首先查看此日志。
+>
+> 该日志是默认开启的，默认存放目录/var/log/mysqld.log。
+
+```mysql
+#可以使用以下命令查看日志存放目录
+show variables like '%log_error%';
+```
+
+
+
+## 二进制日志
+
+> 二进制日志（binlog）记录了所有的DDL（数据定义语言）语句和DML（数据操作语言）语句，但不包括（select、show）语句。在MySQL8的版本中，默认二进制日志是开启的
+>
+> 
+>
+> 作用：1.灾难时的数据恢复；2.MySQL的主从复制。
+
+```mysql
+#查看二进制日志是否开启
+show variables like '%log_bin%';
+#log_bin_basename是二进制文件的保存路径。
+```
+
+
+
+***日志格式***
+
+> MySQL提供了多种格式来记录二进制日志，具体格式及特点如下：
+>
+> | 日志格式  | 含义                                                         |
+> | --------- | ------------------------------------------------------------ |
+> | statement | 基于sql语句的日志记录，记录的就是sql语句，对数据进行修改的sql都会记录在日志文件中 |
+> | row       | 基于行的日志记录，记录的是每一行的数据变更。（默认）         |
+> | mixed     | 混合了statement和row两种格式，默认采用statement，在某些特殊情况下会自动切换为row进行记录 |
+
+***查看和修改日志格式***
+
+```mysql
+#查看二进制日志的记录格式
+show variables like '%binlog_format%';
+
+#修改二进制日志的记录格式
+在/etc/my.cnf 中添加  binlog_format=要修改的格式（上面的三种格式之一）
+然后重启mysql服务。
+```
+
+
+
+***查看日志***
+
+```sh
+mysqlbinlog [option] 二进制日志文件
+
+选项：
+	-d ：指定数据库名称，只列出指定的数据库相关操作。
+	-o ：忽略日志中的前n行。
+	-v ：将行事件（数据变更）重构为sql语句。
+	-vv ：将行事件（数据变更）重构为sql语句，并输出注释信息。
+```
+
+
+
+***日志删除***
+
+> 对于比较繁忙的业务系统，每天生成的binlog数据巨大，如果长时间不清除，将会占用大量的磁盘空间。可以通过以下几种方式清理日志：
+>
+> | 命令                                           | 含义                                                         |
+> | ---------------------------------------------- | ------------------------------------------------------------ |
+> | reset master                                   | 三处全部binlog日志，删除之后，日志编号将从binlog.000001重新开始 |
+> | purge master logs to ‘binlog.xxx’              | 删除xxx编号之前的所有日志                                    |
+> | purge master logs before ‘yyyy-mm-dd hh:mi:ss’ | 删除日志为指定时间之前产生的所有日志                         |
+>
+> 
+>
+> 也可以在MySQL的配置文件中配置二进制日志的过期时间，设置了之后，二进制日志过期会自动删除。
+
+```mysql
+#查看过期时间，单位是秒
+show variables like '%binlog_expire_logs_seconds%'; 
+
+#设置过期时间
+在/etc/my.cnf 中添加 binlog_expire_logs_seconds=设置多少时间过期（单位是秒）
+然后重启mysql服务
+```
+
+
+
+## 查询日志
+
+> 查询日志中记录了客户端的所有操作语句，而二进制日志不包含查询数据的sql语句。默认情况下，查询日志未开启，如果需要开启，通过下面的配置：
+
+```mysql
+#查看查询日志是否开启
+show variables like '%general_log%';
+```
+
+```sh
+#开启查询日志：
+在/etc/my.cnf 中添加 general_log=1 即可。
+还可以通过添加 general_log_file=文件存放位置 来设置查询日志的的文件名和存放位置。
+```
+
+
+
+## 慢查询日志
+
+> 慢查询日志记录了所有执行时间超过参数long_query_time设置值并且扫描记录不小于min_examined_row_limit的所有sql语句的日志，默认未开启。long_query_time默认为19秒，最小为0，精度可以到微妙。
+
+```mysql
+#查询慢查询日志是否开启
+show variables like '%slow_query_log%';
+```
+
+```sh
+#开启慢查询日志并设置超时时间
+在/etc/my.cnf中添加：
+slow_query_log=1
+long_query_time=2  #单位是秒
+```
+
+> 默认情况下，慢查询日志不会记录管理语句，也不会记录不使用索引进行查找的查询。可以使用log_slow_admin_statements和log_queries_not_using_indexes更改此行为，
+
+```mysql
+#查看是否启用 记录管理语句 
+show variables like '%log_slow_admin_statements%';
+#查看是否启用 记录不使用索引进行查找的查询
+show variables like '%log_queries_not_using_indexes%';
+```
+
+```sh
+#启用以上两项：
+在/etc/my.cnf中添加配置：
+log_slow_admin_statements=1
+log_queries_not_using_indexes=1
+```
+
+
+
+
+
+# 主从复制
+
+***概述***
+
+> 主从复制是指将主数据库的DDL和DML操作通过二进制日志传到从库服务器，然后再从库上对这些日志重新执行（也叫重做），从而使得从库与主库的数据保持同步。
+>
+> MySQL支持一台主库同时向多台从库进行复制，从库同时也可以作为其他从服务器的主库，实现链状复制。
+
+***主从复制的优点***
+
+> mysql复制的优点主要包含三个部分：
+>
+> 1. 主库出现问题，可以快速切换到从库提供服务。
+> 2. 实现读写分离，降低主库的访问压力。
+> 3. 可以在从库中执行备份，以避免备份期间影响主库服务。
+
+
+
+## 主从复制原理
+
+> MySQL主从复制的原理如下：
+>
+> ![1681286816868](C:\Users\rth\AppData\Local\Temp\1681286816868.png)
+>
+> 
+>
+> 1. master主库在事务提交时，会把数据变更记录在二进制日志文件binlog中。
+> 2. 从库读取主库的二进制日志文件，写入到从库的中继日志relay log。
+> 3. slave重做中继日志中的事件，将改变反映到它自己的数据。
+
+
+
+## 主从复制搭建
+
+**准备工作**
+
+```sh
+	开放指定3306端口，
+	firewall-cmd --zone=public --add-port=3306/tcp -permannet
+	firewall-cmd -reload
+	或者直接关闭防火墙
+	systemctl stop firewalld
+	systemctl disable firewalld
+```
+
+
+
+### 主库配置
+
+1. 修改配置文件/etc/my.cnf
+
+   ```sh
+   #mysql服务ID，保证整个集群环境中唯一，默认为1，取值范围 1 到 2的32次方-1。
+   server-id=1
+   #是否只读，1代表只读，0代表读写
+   read-only=0
+   
+   下面的配置根据需要才配：
+   #忽略的数据，不需要同步的数据库
+   binlog-ignore-db=数据库名
+   #指定需要同步的数据库
+   binlog-do-db=数据库名
+   ```
+
+2. 重启MySQL服务
+
+   ```sh
+   systemctl restart mysqld
+   ```
+
+3. 登录mysql,创建远程连接的账号，并授予主从复制权限
+
+   ```mysql
+   #创建itcast用户，并设置密码，该用户可以再任意主机连接该MySQL
+   create user 'itcast'@'%' identified with mysql_native_password by 'Root@123456';
+   #为'itcast'@'%'用户分配主从复制权限
+   grant replication slave on *.* to 'itcast'@'%';
+   ```
+
+4. 查看二进制日志坐标
+
+   ```mysql
+   show master status;
+   ```
+
+   > 字段含义说明：
+   >
+   > file ：从哪个日志文件开始推送日志文件。
+   >
+   > position ：从哪个位置开始推送日志。
+   >
+   > binlog_ignore_db ：指定不需要同步的数据库。
+
+
+
+### 从库配置
+
+1. 修改配置文件
+
+   ```sh
+   #mysql服务ID，保证整个集群环境中唯一，默认为1，取值范围 1 到 2的32次方-1。
+   server-id=2
+   #是否只读，1代表只读，0代表读写
+   read-only=1 
+   #这个只是普通用户只读，如果是超级用户还是可以写的。如果想要超级用户也只能读，需要使用super-read-only=1
+   ```
+
+2. 重启服务
+
+   ```sh
+   systemctl restart mysqld
+   ```
+
+3. 登录MySQL，设置主库配置
+
+   ```mysql
+   #8.0.23及之后的语法，也兼容8.0.23之前语法
+   change replication source to source_host='主库IP地址',source_user='主库设置的用户名',source_password='用户密码',source_log_file='二进制文件',source_log_pos=编号;
+   
+   #8.0.23之前语法
+   change master to master_host='主库IP地址',master_user='主库设置的用户名',master_password='用户密码',master_log_file='二进制文件',master_log_pos='编号';
+   
+   #source_user='主库设置的用户名' ：这个用户名就是上面创建的有主从复制权限的用户。
+   #source_password='用户密码' ：密码也是上面设置的。
+   #source_log_file='二进制文件' ：这个文件就是上面使用show master status查看显示的文件名。
+   #source_log_pos='编号' ：这个编号就是上面使用show master status查看显示的Position的值。
+   ```
+
+4. 开启同步操作
+
+   ```mysql
+   start replica;    #8.0.22之后
+   start slave;	#8.0.22之前
+   ```
+
+5. 查看主从同步状态
+
+   ```mysql
+   show replica status \G;	#8.0.22之后。\G：将每一列数据转为行
+   show slave status \G;		#8.0.22之前
+   ```
+
+
+
+### 测试
+
+> 在主库创建数据 表 并插入数据
+>
+> 然后在从库查看数据，验证主从是否同步
+>
+> 
+>
+> 【注意】：
+>
+> ​	这种主从复制是从二进制日志的当前位置往后开始同步。
+>
+> ​	如果主库之前有数据，这样是同步不了的。
+>
+> ​	如果需要将主库之前的数据也同步，可以将主库的数据导出到sql脚本，然后在从库把sql脚本执行，先保证主库和从库的初始数据一致，然后再从当前位置往后进行同步。
+
+
+
+
+
+# 分库分表
+
+## 介绍
+
+**单数据库问题分析**
+
+> 随着互联网的发展，应用系统的数据量也是成指数增长，若采用单数据库进行数据存储，存在以下性能瓶颈：
+>
+> 1. IO瓶颈：热点数据太多，数据库缓存不足，产生大量磁盘IO，效率较低。请求数据太多，带宽不够，网络IO瓶颈。
+> 2. CPU瓶颈：排序、分组、连接查询、聚合统计等sql会耗费大量的CPU资源，请求数太多，CPU出现瓶颈。
+
+> 分库分表的中心思想就是将数据分散存储，使得单一数据库/表的数据量变小来缓解单一数据库的性能问题，从而达到提升数据库性能的目的。
+
+### 拆分策略
+
+***垂直分库***
+
+> 以表为依据，根据业务将不同的表拆分到不同库中。
+>
+> 特点：
+>
+> 1. 每个库的表结构都不一样。
+> 2. 每个库的数据也不一样。
+> 3. 所有库的并集是全部数据。
+
+***垂直分表***
+
+> 以字段为依据，根据字段属性将不同字段拆分到不同表中。
+>
+> 特点：
+>
+> 1. 每个表的机构都不一样。
+> 2. 每个表的数据也不一样，一般通过一列（主键/外键）关联。
+> 3. 所有表的并集是全部数据。
+
+***水平分库***
+
+> 以字段为依据，按照一定的策略，将一个库的数据拆分到多个库中。
+>
+> 特点：
+>
+> 1. 每个库的表结构都一样。
+> 2. 每个库的数据都不一样。
+> 3. 所有库的并集是全部数据。
+
+***水平分表***
+
+> 以字段为依据，按照一定策略，将一个表的数据拆分到多个表中。
+>
+> 特点：
+>
+> 1. 每个表的表结构都一样。
+> 2. 每个表的数据都不一样。
+> 3. 所有表的并集是全部数据。
+
+**分库分表实现技术**
+
+> 1. shardingJDBC：基于AOP原理，在应用程序中对本地执行的sql进行拦截，解析、改写、路由处理。需要自行编码配置实现，只支持Java语言，性能较高。
+> 2. mycat：数据库分库分表中间件，不用调整代码即可实现分库分表，支持多种语言，性能不及shardingJDBC.
+
+## mycat启动
+
+```sh
+切换到mycat安装目录，执行以下命令，启动mycat。
+bin/mycat start  #启动
+bin/mycat stop	#停止
+
+mycat启动之后，占用8066端口
+日志文件：安装目录下的 logs/wrapper.log
+```
+
+***连接mycat***
+
+```sh
+mysql -h IP地址 -P 8066 -uroot -p123456
+```
+
+
+
+## mycat配置文件
+
+### schema.xml配置文件
+
+> schema.xml作为mycat中最重要的配置文件之一，涵盖了mycat的逻辑库、逻辑表、分片规则、分片节点以及数据源的配置。
+>
+> 主要包含三组标签：schema标签、datanode标签、datahost标签。
+>
+> ![1681447732709](C:\Users\rth\AppData\Local\Temp\1681447732709.png)
+
+
+
+***schema标签***
+
+> ![1681378352186](C:\Users\rth\AppData\Local\Temp\1681378352186.png)
+>
+> schema标签用于定义mycat实例中的逻辑库，一个mycat实例中，可以有多个逻辑库，通过schema标签来划分不同逻辑库。
+>
+> mycat中的逻辑库的概念，等同于MySQL中的database概念，需要操作某个逻辑库下的表时，也需要切换到逻辑库（use xxx）。
+>
+> 核心属性：
+>
+> 1. name：自定义的逻辑库库名。
+> 2. checkSQLschema：在SQL语句操作时指定了数据库名称，执行时是否自动去除；true：去除，false:不去除，（例如没有切换到数据库，查询数据库中表的信息，select * from 数据库.表; 如果是true，就能查到，如果是false，就不能查到）
+> 3. sqlMaxLimit：如果未指定limit进行查询，列表查询模式最多查询多少条记录。
+
+
+
+***schema子标签（table）***
+
+> ![1681442115914](C:\Users\rth\AppData\Local\Temp\1681442115914.png)
+>
+> table标签定义了mycat中逻辑库schema下的逻辑表，所有需要拆分的表都需要在table标签中定义。
+>
+> 核心属性：
+>
+> 1. name：定义逻辑表表名，在该逻辑库下唯一。
+> 2. dataNode：定义逻辑表所属的dataNode，该属性需要与dataNode标签中name对应；多个dataNode逗号分割。
+> 3. rule：分片规则的名字，分片规则名字是rule.xml中定义的。
+> 4. primaryKey：逻辑表对应真实表的主键。
+> 5. type：逻辑表的类型，目前逻辑表只有全局表和普通表，如果未配置，就是普通表；全局表，配置未global
+
+
+
+***dataNode标签***
+
+> ![1681442525203](C:\Users\rth\AppData\Local\Temp\1681442525203.png)
+>
+> dataNode标签中定义了mycat中的数据节点，也就是我们通常说的数据分片。一个dataNode标签就是一个独立的数据分片。
+>
+> 核心属性：
+>
+> 1. name：定义数据节点名称。
+> 2. dataHost：数据库实例主机名称，引用自dataHost标签中name属性。
+> 3. database：定义分片所属数据库。
+
+
+
+***dataHost标签***
+
+> ![1681447151617](C:\Users\rth\AppData\Local\Temp\1681447151617.png)
+>
+> 该标签在mycat逻辑库中作为底层标签存在，直接定义了具体的数据库实例、读写分离、心跳语句。
+>
+> 核心属性：
+>
+> 1. name：唯一标识，供上层标签使用（dataNode中的dataHost）。
+> 2. maxCon/minCon：最大/最小连接数。
+> 3. balance：负载均衡策略，取值0，1，2，3。
+> 4. writeType：写操作分布方式（0：写操作转发到第一个writeHost，第一个挂了，切换到第二个；1：写操作随机分发到配置的writeHost）
+> 5. dbDriver：数据库驱动，支持native、jdbc。
+
+
+
+### rule.xml配置文件
+
+> rule.xml中定义所有拆分表的规则，在使用过程中可以灵活的使用分片算法，或者对同一个分片算法使用不同的参数，它让分片过程可配置化。主要包含两类标签：tableRule、Function。
+>
+> ![1681448123792](C:\Users\rth\AppData\Local\Temp\1681448123792.png)
+
+
+
+### server.xml配置文件
+
+> server.xml配置文件包含了mycat的系统配置信息，主要有两个重要的标签：system、user。
+
+
+
+***user标签***
+
+> ![1681448420239](C:\Users\rth\AppData\Local\Temp\1681448420239.png)
+
+
+
+
+
+## 分片规则
+
+***范围分片***
+
+> 根据指定的字段及其配置的范围与数据节点的对应情况，来决定该数据属于哪一个分片。
+>
+> ![1681464006052](C:\Users\rth\AppData\Local\Temp\1681464006052.png)
+>
+> autopartition-long.txt文件就是配置的一个数据范围的数据存放在哪个节点上。根据需要可以自己调整。
+>
+> 0-500M=0：代表id在0到500万这个范围的数据存放在第一个节点。
+>
+> 500M-1000M=1：代表id在500万到1000万这个范围的数据存放在第二个节点。
+>
+> 1000-1500M=2：代表id在1000万到1500万这个范围的数据存放在第三个节点。
+
+
+
+***取模分片***
+
+> 根据指定的字段与节点数量进行求模运算，根据运算结果，来决定该数据属于哪一个分片。
+>
+> ![1681465386188](C:\Users\rth\AppData\Local\Temp\1681465386188.png)
+>
+> rule=“mod-long”：分片规则为取模分片。调用rule.xml中的name=“mod-long”。
+>
+> id：分片的字段。
+>
+> 3：节点数量。
+
+
+
+***一致性hash***
+
+> 所谓一致性hash，相同的哈希因子计算值总是被划分到相同的分区表中，不会因为分区节点的增加而改变原来数据的分区位置。
+>
+> ![1681700421674](C:\Users\rth\AppData\Local\Temp\1681700421674.png)
+
+
+
+***枚举分片***
+
+> 通过在配置文件中配置有可能的枚举值，指定数据分布到不同数据节点上，本规则适用于按照省份、性别、状态拆分数据等业务。
+>
+> ![1681708020156](C:\Users\rth\AppData\Local\Temp\1681708020156.png)
+>
+> defaultNode：如果枚举值超出了，默认放在哪个节点，索引从0开始，这里的2表示第三个节点。
+
+
+
+***应用指定分片***
+
+> 运行阶段有应用自主决定路由到哪个分片，直接根据字符字串（必须是数字）计算分片号。
+>
+> ![1681708816559](C:\Users\rth\AppData\Local\Temp\1681708816559.png)
+>
+> 这个规则在配置文件中需要自己手动加上。
+
+
+
+***固定分片hash算法***
+
+> 取二进制低10为与1111111111进行位与（&）运算。
+>
+> ![1681710068070](C:\Users\rth\AppData\Local\Temp\1681710068070.png)
+
+
+
+***字符串hash解析***
+
+> 截取字符串中的指定位置的子字符串，进行hash算法，算出分片。
+>
+> ![1681710708147](C:\Users\rth\AppData\Local\Temp\1681710708147.png)
+
+
+
+***按（天）日期分片***
+
+> ![1681710940621](C:\Users\rth\AppData\Local\Temp\1681710940621.png)
+
+
+
+***按月分片***
+
+> ![1681711404204](C:\Users\rth\AppData\Local\Temp\1681711404204.png)
+
+
+
+
+
+# mycat管理与监控
+
+## mycat原理
+
+> ![1681786101470](C:\Users\rth\AppData\Local\Temp\1681786101470.png)
+
+
+
+## mycat管理
+
+> mycat默认开头2个端口，可以在server.xml中进行修改。
+>
+> 8066数据访问端口，即进行DML和DDL操作。
+>
+> 9066数据库管理端口，即mycat服务管理控制功能，用于管理mycat的整个集群状态。
+
+```sh
+mysql -h ip -P 9066 -uroot -p
+```
+
+> 命令：
+>
+> show @@help	#查看mycat管理工具帮助文档
+>
+> show @@version	#查看mycat版本
+>
+> reload @@config	  #重新加载mycat的配置文件
+>
+> show @@datasource   #查看mycat的数据源信息
+>
+> show @@datanode	   #查看mycat现有的分片节点信息
+>
+> show @@threadpool   #查看mycat的线程池信息
+>
+> show @@sql	#查看执行的sql
+>
+> show @@sql.sum	#查看执行的sql统计
+
+
+
+
+
+# 读写分离
+
+**介绍**
+
+> 读写分离，简单地说是把对数据库的读和写操作分开，以对应不同的数据库服务器。主数据库提供写操作，从数据库提供读操作，这样能有效的减轻单台数据库的压力。
+>
+> 通过mycat即可轻易实现上述功能，不仅可以支持MySQL，也可以支持Oracle和SQL server。
+
+
+
+
+
+## 一主一从读写分离
+
+> mycat控制后台数据库的读写分离和负载均衡由schema.xml文件datahost标签的balance属性控制。
+>
+> balance：负载均衡策略，目前取值有4种：
+>
+> | balance取值 | 含义                                                         |
+> | ----------- | ------------------------------------------------------------ |
+> | 0           | 不开启读写分离机制，所有读操作都发送到当前可用的writeHost上。 |
+> | 1           | 全部的readHost与备用的writeHost都参与select语句的负载均衡（主要针对于双主双从模式）。 |
+> | 2           | 所有的读写操作都随机在writeHost，readHost上分发              |
+> | 3           | 所有的读请求随机分发到writeHost对应的readHost上执行，writeHost不负担读压力。 |
+>
+> ![1681807504404](C:\Users\rth\AppData\Local\Temp\1681807504404.png)
+
+
+
+## 双主双从读写分离
+
+***搭建主从复制***
+
+**主库配置**
+
+```sh
+1.修改主服务器配置文件/etc/my.cnf
+
+#mysql服务id，保证整个集群中唯一
+server-id=n
+
+#可以指定同步的数据库，如果不指定，就是同步全部数据库
+binglog-do-db=数据库名1
+
+#在作为从数据库的时候，有写入操作也要更新二进制日志文件
+log-slave-updates
+
+
+2.重启MySQL服务器
+systemctl restart mysqld
+
+
+```
+
+```mysql
+#两台主库创建账户并授权
+create user 'itcast'@'%' identified with mysql_native_password by 'Root@123';
+grant replication slave on *.* to 'itcast'@'%';
+
+#查看两台主库的二进制日志坐标
+show master status;
+```
+
+
+
+**从库配置**
+
+```sh
+从库1：
+server-id=2
+
+从库2：
+server-id=4
+
+重启mysql
+systemctl restart mysqld
+```
+
+```mysql
+#配置两台从库关联主库
+change master to master_host='IP',master_user='itcast',master_password='密码',master_log_file='二进制文件',master_log_pos='文件位置';
+	注意slave1对应master1，slave2对应master2
+
+#启动两台从库主从复制，查看从库状态
+start slave;
+show slave status \G;
+```
+
+**两台主库相互复制**
+
+```mysql
+#master1复制master2，master2复制master1。
+change master to master_host='IP',master_user='itcast',master_password='密码',master_log_file='二进制文件',master_log_pos='文件位置';
+	
+#启动两台从库主从复制，查看从库状态
+start slave;
+show slave status \G;
+```
+
+
+
+***配置读写分离***
+
+> mycat控制后台数据库的读写分离和负载均衡有schema.xml文件的datahost标签的balance属性控制，通过writeType即switchType来完成失败自动却换。
+>
+> ![1681879392538](C:\Users\rth\AppData\Local\Temp\1681879392538.png)
+>
+> balance=“1”：代表全部的readHost与备用的 writeHost参与select语句的负载均衡。
+>
+> writeType：
+>
+> ​	0：写操作都转发到第一台writeHost，writeHost1挂了，会切换到writeHost2上。
+>
+> ​	1：所有的写操作都随机的发送到配置的writeHost上。
+>
+> switchType：
+>
+> ​	-1：不自动切换。
+>
+> ​	1：自动切换。
